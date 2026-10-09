@@ -10,7 +10,10 @@ class OriginAllowedTests(unittest.TestCase):
 
     def test_refused(self):
         for origin in ["https://evil.example", "http://localhost.evil.example", "https://localhost",
-                       "http://192.168.1.5:8766", "http://localhost/path", "file://"]:
+                       "http://192.168.1.5:8766", "http://localhost/path", "file://", "http://localhost:abc",
+                       "http://localhost:99999", "http://localhost:", "http://user@localhost",
+                       "http://user:p@127.0.0.1:1", "http://localhost?x=1", "http://localhost#f",
+                       "HTTP://LOCALHOST", "http://[::1", "http://localhost:5173/"]:
             self.assertFalse(origin_allowed(origin), origin)
 
 

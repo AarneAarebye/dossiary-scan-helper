@@ -2,6 +2,7 @@
 
 import base64
 import json
+import re
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,12 +16,16 @@ HELPER_NAME = "dossiary-scan-helper-reference"
 _scan_lock = threading.Lock()
 
 
+_ALLOWED_ORIGIN = re.compile(r"http://(localhost|127\.0\.0\.1)(:[0-9]{1,5})?")
+MAX_BODY = 1_000_000
+
+
 def origin_allowed(origin):
     """No Origin, "null", or plain-http localhost / 127.0.0.1 on any port."""
     if origin is None or origin == "null":
         return True
-    parts = urlsplit(origin)
-    return parts.scheme == "http" and parts.hostname in ("localhost", "127.0.0.1") and not parts.path.strip("/")
+    match = _ALLOWED_ORIGIN.fullmatch(origin)
+    return match is not None and (match.group(2) is None or int(match.group(2)[1:]) <= 65535)
 
 
 def _error_body(message):
@@ -56,7 +61,8 @@ class Handler(BaseHTTPRequestHandler):
         if cors:
             self._cors_headers()
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def _read_body(self):
         length = int(self.headers.get("Content-Length") or 0)
@@ -100,9 +106,12 @@ class Handler(BaseHTTPRequestHandler):
         if path != "/scan":
             self._send_json(404, _error_body("Unknown endpoint."))
             return
+        if int(self.headers.get("Content-Length") or 0) > MAX_BODY:
+            self._send_json(400, _error_body("The request body is too large."))
+            return
         try:
             body = json.loads(self._read_body().decode("utf-8") or "null")
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError):
             self._send_json(400, _error_body("The request body isn't valid JSON."))
             return
         try:
@@ -123,6 +132,19 @@ class Handler(BaseHTTPRequestHandler):
             files.append({"name": name, "pages": len(pages),
                           "data": base64.b64encode(make_pdf(pages)).decode("ascii")})
         self._send_json(200, {"ok": not partial, "partial": partial, "message": message, "files": files})
+
+
+def _other_method(self):
+    if not self._origin_ok():
+        return
+    path = urlsplit(self.path).path
+    if path in ("/health", "/scanners", "/scan"):
+        self._send_json(405, _error_body("This method isn't supported."))
+    else:
+        self._send_json(404, _error_body("Unknown endpoint."))
+
+
+Handler.do_PUT = Handler.do_DELETE = Handler.do_PATCH = Handler.do_HEAD = _other_method
 
 
 def make_server(host, port):
