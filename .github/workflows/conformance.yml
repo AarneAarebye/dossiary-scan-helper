@@ -1,0 +1,35 @@
+name: conformance
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  reference-helper:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Reference helper unit tests
+        working-directory: reference
+        run: python -m unittest discover -s tests -v
+      - name: Start the reference helper
+        working-directory: reference
+        shell: bash
+        run: |
+          python -m scanbridge_ref --port 8766 > ../helper.log 2>&1 &
+          for i in $(seq 1 50); do
+            python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8766/health', timeout=1)" && exit 0
+            sleep 0.2
+          done
+          echo "helper did not start"; cat ../helper.log; exit 1
+      - name: Conformance suite
+        shell: bash
+        env:
+          SCAN_HELPER_URL: http://127.0.0.1:8766
+        run: python -m unittest discover -s conformance -v
