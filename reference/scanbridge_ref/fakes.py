@@ -29,6 +29,7 @@ class FakeScanner:
     delay: float = 0.0
     offline: bool = False
     jam_after: int | None = None
+    empty: bool = False
 
     def describe(self) -> dict:
         return {
@@ -53,7 +54,11 @@ FAKE_SCANNERS = (
              jam_after=2),
     _scanner("fake:slow", "Fake Slow Scanner", ("flatbed",), delay=2.0),
     _scanner("fake:offline", "Fake Offline Scanner", ("flatbed",), offline=True),
+    _scanner("fake:empty", "Fake Empty Feeder", ("feeder",), empty=True),
 )
+
+EMPTY_FEEDER_MESSAGE = "No paper in the feeder."
+
 
 
 def validate(body):
@@ -111,6 +116,8 @@ def simulate(scanner, settings):
         raise ScanError(503, f"{scanner.name} isn't reachable. Check that it's switched on and connected.")
     if scanner.delay:
         time.sleep(scanner.delay)
+    if scanner.empty:
+        raise ScanError(500, EMPTY_FEEDER_MESSAGE)
 
     if settings["source"] == "flatbed":
         pages = ["Flatbed page 1"]

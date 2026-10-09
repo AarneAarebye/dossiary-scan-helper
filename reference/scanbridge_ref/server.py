@@ -1,4 +1,4 @@
-"""HTTP side of the reference helper: routes, origin check, one scan at a time."""
+"""HTTP side of the reference helper: routes, origin check, pairing, one scan at a time."""
 
 import base64
 import json
@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .fakes import FAKE_SCANNERS, ScanError, simulate, validate
+from .pairing import bearer_token, pair, token_valid, validate_pair_body
 from .pdf import make_pdf
 
 HELPER_NAME = "dossiary-scan-helper-reference"
@@ -19,13 +20,17 @@ _scan_lock = threading.Lock()
 _ALLOWED_ORIGIN = re.compile(r"http://(localhost|127\.0\.0\.1)(:[0-9]{1,5})?")
 MAX_BODY = 1_000_000
 
+# Each endpoint and the one method it takes (besides OPTIONS).
+ENDPOINTS = {"/health": "GET", "/scanners": "GET", "/scan": "POST", "/pair": "POST"}
+NEEDS_TOKEN = ("/scanners", "/scan")
+
 
 def origin_allowed(origin):
-    """No Origin, "null", or plain-http localhost / 127.0.0.1 on any port."""
+    """No Origin, "null", or plain-http localhost / 127.0.0.1 on a port from 1 to 65535."""
     if origin is None or origin == "null":
         return True
     match = _ALLOWED_ORIGIN.fullmatch(origin)
-    return match is not None and (match.group(2) is None or int(match.group(2)[1:]) <= 65535)
+    return match is not None and (match.group(2) is None or 1 <= int(match.group(2)[1:]) <= 65535)
 
 
 def _error_body(message):
@@ -53,20 +58,37 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
 
-    def _send_json(self, status, payload, cors=True):
+    def _send_json(self, status, payload, cors=True, extra_headers=()):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        for name, value in extra_headers:
+            self.send_header(name, value)
         if cors:
             self._cors_headers()
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
 
-    def _read_body(self):
-        length = int(self.headers.get("Content-Length") or 0)
-        return self.rfile.read(length) if length else b""
+    def _paired(self):
+        return token_valid(bearer_token(self.headers.get("Authorization")))
+
+    def _read_json_body(self):
+        """The parsed JSON body; raises ScanError(400) for a bad length or bad JSON."""
+        length = self.headers.get("Content-Length")
+        if length is None:
+            raw = b""
+        else:
+            if not re.fullmatch(r"[0-9]+", length.strip()):
+                raise ScanError(400, "The request has an invalid Content-Length.")
+            if int(length) > MAX_BODY:
+                raise ScanError(400, "The request body is too large.")
+            raw = self.rfile.read(int(length)) if int(length) else b""
+        try:
+            return json.loads(raw.decode("utf-8") or "null")
+        except (ValueError, UnicodeDecodeError, RecursionError):
+            raise ScanError(400, "The request body isn't valid JSON.") from None
 
     # --- methods ------------------------------------------------------------
 
@@ -76,55 +98,52 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self._cors_headers()
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Access-Control-Max-Age", "600")
         if self.headers.get("Access-Control-Request-Private-Network") == "true":
             self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def do_GET(self):
+    def _dispatch(self):
+        # Order: origin (403), endpoint (404), method (405), token (401), then the endpoint itself.
         if not self._origin_ok():
             return
         path = urlsplit(self.path).path
-        if path == "/health":
-            self._send_json(200, {"ok": True, "helper": HELPER_NAME, "version": __version__, "protocol": 2})
-        elif path == "/scanners":
-            self._send_json(200, {"scanners": [s.describe() for s in FAKE_SCANNERS]})
-        elif path == "/scan":
-            self._send_json(405, _error_body("Use POST to start a scan."))
-        else:
-            self._send_json(404, _error_body("Unknown endpoint."))
-
-    def do_POST(self):
-        if not self._origin_ok():
-            return
-        path = urlsplit(self.path).path
-        if path in ("/health", "/scanners"):
-            self._send_json(405, _error_body("Use GET for this endpoint."))
-            return
-        if path != "/scan":
+        method = ENDPOINTS.get(path)
+        if method is None:
             self._send_json(404, _error_body("Unknown endpoint."))
             return
-        if int(self.headers.get("Content-Length") or 0) > MAX_BODY:
-            self._send_json(400, _error_body("The request body is too large."))
+        if self.command != method:
+            self._send_json(405, _error_body(f"Use {method} for this endpoint."),
+                            extra_headers=[("Allow", f"{method}, OPTIONS")])
+            return
+        if path in NEEDS_TOKEN and not self._paired():
+            self._send_json(401, _error_body(
+                "This browser isn't paired with the scan helper. Pair it in Dossiary's scanner settings."))
             return
         try:
-            body = json.loads(self._read_body().decode("utf-8") or "null")
-        except (ValueError, UnicodeDecodeError, RecursionError):
-            self._send_json(400, _error_body("The request body isn't valid JSON."))
-            return
-        try:
-            scanner, settings = validate(body)
-            if not _scan_lock.acquire(blocking=False):
-                raise ScanError(409, "Another scan is still running. Try again when it has finished.")
-            try:
-                documents, partial, message = simulate(scanner, settings)
-            finally:
-                _scan_lock.release()
+            if path == "/health":
+                self._send_json(200, {"ok": True, "helper": HELPER_NAME, "version": __version__,
+                                      "protocol": 2, "paired": self._paired()})
+            elif path == "/scanners":
+                self._send_json(200, {"scanners": [s.describe() for s in FAKE_SCANNERS]})
+            elif path == "/pair":
+                token = pair(validate_pair_body(self._read_json_body()))
+                self._send_json(200, {"ok": True, "token": token})
+            else:
+                self._scan()
         except ScanError as err:
             self._send_json(err.status, _error_body(err.message))
-            return
+
+    def _scan(self):
+        scanner, settings = validate(self._read_json_body())
+        if not _scan_lock.acquire(blocking=False):
+            raise ScanError(409, "Another scan is still running. Try again when it has finished.")
+        try:
+            documents, partial, message = simulate(scanner, settings)
+        finally:
+            _scan_lock.release()
         stamp = time.strftime("%Y%m%d_%H%M%S")
         files = []
         for index, pages in enumerate(documents, start=1):
@@ -133,18 +152,7 @@ class Handler(BaseHTTPRequestHandler):
                           "data": base64.b64encode(make_pdf(pages)).decode("ascii")})
         self._send_json(200, {"ok": not partial, "partial": partial, "message": message, "files": files})
 
-
-def _other_method(self):
-    if not self._origin_ok():
-        return
-    path = urlsplit(self.path).path
-    if path in ("/health", "/scanners", "/scan"):
-        self._send_json(405, _error_body("This method isn't supported."))
-    else:
-        self._send_json(404, _error_body("Unknown endpoint."))
-
-
-Handler.do_PUT = Handler.do_DELETE = Handler.do_PATCH = Handler.do_HEAD = _other_method
+    do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = _dispatch
 
 
 def make_server(host, port):

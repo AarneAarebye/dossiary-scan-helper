@@ -10,9 +10,16 @@ def by_id(scanner_id):
 
 
 class DescribeTests(unittest.TestCase):
-    def test_six_scanners_in_protocol_order(self):
+    def test_seven_scanners_in_protocol_order(self):
         self.assertEqual([s.id for s in FAKE_SCANNERS],
-                         ["fake:flatbed", "fake:feeder", "fake:splitter", "fake:jam", "fake:slow", "fake:offline"])
+                         ["fake:flatbed", "fake:feeder", "fake:splitter", "fake:jam", "fake:slow", "fake:offline",
+                          "fake:empty"])
+
+    def test_empty_feeder_description(self):
+        self.assertEqual(by_id("fake:empty").describe(), {
+            "id": "fake:empty", "name": "Fake Empty Feeder", "sources": ["feeder"], "duplex": False,
+            "colorModes": ["color", "gray", "bw"], "resolutions": [150, 300, 600], "extras": [],
+        })
 
     def test_describe_uses_protocol_field_names(self):
         self.assertEqual(by_id("fake:splitter").describe(), {
@@ -43,6 +50,7 @@ class ValidateTests(unittest.TestCase):
         self.assertStatus({"scanner": 5}, 400)
         self.assertStatus({"scanner": "fake:flatbed", "resolution": "300"}, 400)
         self.assertStatus({"scanner": "fake:flatbed", "resolution": True}, 400)
+        self.assertStatus({"scanner": "fake:flatbed", "resolution": 300.0}, 400)
         self.assertStatus({"scanner": "fake:flatbed", "duplex": "yes"}, 400)
         self.assertStatus({"scanner": "fake:flatbed", "source": 1}, 400)
         self.assertStatus({"scanner": "fake:flatbed", "extras": []}, 400)
@@ -112,6 +120,13 @@ class SimulateTests(unittest.TestCase):
         with self.assertRaises(ScanError) as ctx:
             simulate(scanner, settings)
         self.assertEqual(ctx.exception.status, 503)
+
+    def test_empty_feeder_is_500(self):
+        scanner, settings = validate({"scanner": "fake:empty"})
+        with self.assertRaises(ScanError) as ctx:
+            simulate(scanner, settings)
+        self.assertEqual(ctx.exception.status, 500)
+        self.assertEqual(ctx.exception.message, "No paper in the feeder.")
 
     def test_slow_takes_its_delay(self):
         scanner, settings = validate({"scanner": "fake:slow"})
