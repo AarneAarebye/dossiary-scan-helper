@@ -28,6 +28,16 @@ def scan(body, **kw):
     return request("POST", "/scan", body=body, **kw)
 
 
+def assert_error(case, resp, status):
+    case.assertEqual(resp.status, status, resp.body[:200])
+    case.assertTrue(resp.headers.get("Content-Type", "").startswith("application/json"), "error body must be JSON")
+    data = resp.json()
+    case.assertIs(data["ok"], False)
+    case.assertIs(data["partial"], False)
+    case.assertIsInstance(data["message"], str)
+    case.assertTrue(data["message"].strip())
+
+
 class HealthTests(unittest.TestCase):
     def test_health(self):
         resp = request("GET", "/health")
@@ -128,12 +138,7 @@ class ScanTests(unittest.TestCase):
 
 class ErrorTests(unittest.TestCase):
     def assertError(self, resp, status):
-        self.assertEqual(resp.status, status, resp.body[:200])
-        data = resp.json()
-        self.assertIs(data["ok"], False)
-        self.assertIs(data["partial"], False)
-        self.assertIsInstance(data["message"], str)
-        self.assertTrue(data["message"].strip())
+        assert_error(self, resp, status)
 
     def test_400_malformed(self):
         self.assertError(request("POST", "/scan", raw_body=b"{not json",
@@ -167,14 +172,56 @@ class ErrorTests(unittest.TestCase):
 
     def test_409_while_another_scan_runs(self):
         results = {}
-        slow = threading.Thread(target=lambda: results.setdefault("slow", scan({"scanner": "fake:slow"})))
-        slow.start()
-        time.sleep(0.5)
-        self.assertError(scan({"scanner": "fake:flatbed"}), 409)
-        slow.join(timeout=30)
+        def slow_scan():
+            try:
+                results["slow"] = scan({"scanner": "fake:slow"})
+            except Exception as err:  # keep the failure visible below
+                results["slow"] = err
+        worker = threading.Thread(target=slow_scan)
+        worker.start()
+        try:
+            time.sleep(0.5)
+            assert_error(self, scan({"scanner": "fake:flatbed"}), 409)
+        finally:
+            worker.join(timeout=30)
+        self.assertFalse(worker.is_alive(), "slow scan did not finish")
+        self.assertNotIsInstance(results.get("slow"), Exception, results.get("slow"))
         self.assertEqual(results["slow"].status, 200)
         # Once the slow scan is done, the helper accepts scans again.
         self.assertEqual(scan({"scanner": "fake:flatbed"}).status, 200)
+
+
+class ValidationOrderTests(unittest.TestCase):
+    def test_unknown_scanner_beats_wrong_type(self):
+        assert_error(self, scan({"scanner": "fake:nope", "resolution": "300"}), 404)
+
+    def test_wrong_type_beats_unsupported_value(self):
+        assert_error(self, scan({"scanner": "fake:flatbed", "resolution": "300", "colorMode": "sepia"}), 400)
+
+    def test_unsupported_value_beats_offline(self):
+        assert_error(self, scan({"scanner": "fake:offline", "resolution": 1200}), 422)
+
+    def test_while_busy(self):
+        results = {}
+        def slow_scan():
+            try:
+                results["slow"] = scan({"scanner": "fake:slow"})
+            except Exception as err:  # keep the failure visible below
+                results["slow"] = err
+        worker = threading.Thread(target=slow_scan)
+        worker.start()
+        try:
+            time.sleep(0.5)
+            # Validation (steps 1-5) comes before the busy check (step 6) ...
+            assert_error(self, scan({"scanner": "fake:nope"}), 404)
+            assert_error(self, scan({"scanner": "fake:flatbed", "resolution": 1200}), 422)
+            # ... and busy (step 6) comes before offline (step 7).
+            assert_error(self, scan({"scanner": "fake:offline"}), 409)
+        finally:
+            worker.join(timeout=30)
+        self.assertFalse(worker.is_alive(), "slow scan did not finish")
+        self.assertNotIsInstance(results.get("slow"), Exception, results.get("slow"))
+        self.assertEqual(results["slow"].status, 200)
 
 
 class OriginTests(unittest.TestCase):
@@ -192,10 +239,10 @@ class OriginTests(unittest.TestCase):
         for origin in ["https://evil.example", "http://localhost.evil.example", "https://localhost:5173",
                        "http://192.168.1.5:8766"]:
             resp = request("GET", "/health", headers={"Origin": origin})
-            self.assertEqual(resp.status, 403, origin)
+            assert_error(self, resp, 403)
             self.assertIsNone(resp.headers.get("Access-Control-Allow-Origin"))
         resp = scan({"scanner": "fake:flatbed"}, headers={"Origin": "https://evil.example"})
-        self.assertEqual(resp.status, 403)
+        assert_error(self, resp, 403)
 
     def test_preflight(self):
         resp = request("OPTIONS", "/scan", headers={
@@ -207,11 +254,27 @@ class OriginTests(unittest.TestCase):
         self.assertIn("POST", resp.headers.get("Access-Control-Allow-Methods", ""))
         self.assertIn("content-type", resp.headers.get("Access-Control-Allow-Headers", "").lower())
         self.assertEqual(resp.headers.get("Access-Control-Allow-Private-Network"), "true")
+        self.assertEqual(resp.headers.get("Access-Control-Allow-Methods"), "GET, POST, OPTIONS")
+        self.assertEqual(resp.headers.get("Access-Control-Allow-Headers", "").lower(), "content-type")
+        self.assertEqual(resp.headers.get("Access-Control-Max-Age"), "600")
+
+    def test_preflight_without_private_network_request(self):
+        resp = request("OPTIONS", "/scan", headers={
+            "Origin": "null", "Access-Control-Request-Method": "POST"})
+        self.assertEqual(resp.status, 204)
+        self.assertIsNone(resp.headers.get("Access-Control-Allow-Private-Network"))
+
+    def test_preflight_on_every_endpoint(self):
+        for path in ["/health", "/scanners", "/no-such-endpoint"]:
+            resp = request("OPTIONS", path, headers={
+                "Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"})
+            self.assertEqual(resp.status, 204, path)
+            self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "http://localhost:5173", path)
 
     def test_preflight_from_other_origin_is_403(self):
         resp = request("OPTIONS", "/scan", headers={"Origin": "https://evil.example",
                                                     "Access-Control-Request-Method": "POST"})
-        self.assertEqual(resp.status, 403)
+        assert_error(self, resp, 403)
 
 
 if __name__ == "__main__":
