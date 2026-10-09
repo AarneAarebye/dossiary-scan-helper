@@ -24,8 +24,12 @@ Needs Python 3.11 or newer, nothing else:
     cd reference
     python3 -m scanbridge_ref --port 8766
 
-It listens on `127.0.0.1:8766` and offers six fake scanners (see
+It listens on `127.0.0.1:8766` and offers seven fake scanners (see
 "Fake scanner mode" in `PROTOCOL.md`).
+
+Each browser pairs with a helper once: it sends a code the helper shows
+and gets a token for every later request, so other websites can't use
+your scanner. The reference helper's code is always `000000`.
 
 ## Run the conformance suite
 
@@ -33,6 +37,8 @@ With a helper running (the reference helper, or a native helper started
 with `--fake-scanners`):
 
     SCAN_HELPER_URL=http://127.0.0.1:8766 python3 -m unittest discover -s conformance -v
+
+The suite pairs automatically with the fake-mode code `000000`.
 
 The reference helper's own unit tests:
 
