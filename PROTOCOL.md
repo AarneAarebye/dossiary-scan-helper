@@ -313,11 +313,30 @@ helper that localizes the messages for real scanners:
 
 ## Version 1 (scanix500 before protocol 2)
 
-Version 1 is kept only for older Dossiary releases. It has
-`GET /health` without `protocol`, and
-`POST /scan?skip_blank_filter=…&skip_ocr=…&split_on_blank=…`
-(`true`/`false`) with no body. It answers with the same response shape,
-without `pages`. Version 1 has no pairing. A helper serving both versions
-tells them apart by the presence of query parameters on `POST /scan`.
-Dossiary keeps speaking version 1 to helpers that don't report
-`protocol: 2`; new helpers implement version 2 only.
+Version 1 is scanix500's own older protocol, kept for Dossiary releases
+that don't speak version 2. New helpers implement version 2 only, and
+Dossiary keeps speaking version 1 to a helper that doesn't report
+`protocol: 2`. It differs from version 2 in its wire format, not just in
+the missing endpoints:
+
+- `GET /health` → `{"service": "scanix500-bridge", "paired": <bool>}`,
+  with no `ok`, `helper`, `version` or `protocol`. Before scanix500 0.3.0
+  there was no `paired` field (and no pairing at all).
+- `POST /scan?skip_blank_filter=…&skip_ocr=…&split_on_blank=…`, each
+  required and exactly `true` or `false`, with no body. The response is
+  `{"ok", "partial", "message", "output_paths", "files"}`, where each file
+  is `{"filename": "...", "content_base64": "..."}` (not `name`/`data`)
+  and has no `pages`. `output_paths` lists where the helper kept its own
+  copy.
+- Errors are `{"error": "<message>"}`: 400 for missing or invalid
+  parameters, 404 for an unknown path, 409 while a scan is running.
+- Pairing, since scanix500 0.3.0: `POST /pair` as in version 2 (refusals
+  are `{"error"}` with 403, malformed bodies 400), and `POST /scan`
+  answers 401 without a valid `Authorization: Bearer <token>`. CORS
+  follows the Security section: the allowed origins are echoed and any
+  other `Origin` gets 403. Before 0.3.0 the bridge answered every origin
+  with `Access-Control-Allow-Origin: *` and had no token, so any website
+  could start a scan and read the document.
+
+A helper serving both versions tells them apart by the presence of query
+parameters on `POST /scan`.
