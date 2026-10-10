@@ -17,7 +17,7 @@ public final class HelperRuntime: @unchecked Sendable {
             pairing = PairingStore(mode: .fake)
         } else {
             backend = ImageCaptureBackend(log: { [log] in log.write($0) })
-            pairing = PairingStore(mode: .real(fileURL: PairingStore.defaultFileURL))
+            pairing = PairingStore(mode: .real(fileURL: PairingStore.defaultFileURL), log: { [log] in log.write($0) })
         }
         let write: @Sendable (String) -> Void = { [log] in log.write($0) }
         router = Router(backend: backend, pairing: pairing, log: write)

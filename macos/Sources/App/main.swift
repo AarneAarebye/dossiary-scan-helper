@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import HelperCore
 
@@ -15,10 +16,22 @@ Log.shared.echoToStderr = options.headless
 let runtime: HelperRuntime
 do {
     runtime = try HelperRuntime(options: options)
-    try runtime.start()
 } catch {
     FileHandle.standardError.write(Data("\(error)\n".utf8))
     exit(1)
 }
-print("Dossiary Scan Helper on http://127.0.0.1:\(options.port)\(options.fakeScanners ? " (fake scanners, pairing code 000000)" : ""). Ctrl+C stops it.")
-RunLoop.main.run()
+
+if options.headless {
+    do { try runtime.start() } catch {
+        FileHandle.standardError.write(Data("\(error)\n".utf8))
+        exit(1)
+    }
+    print("Dossiary Scan Helper on http://127.0.0.1:\(options.port)\(options.fakeScanners ? " (fake scanners, pairing code 000000)" : ""). Ctrl+C stops it.")
+    RunLoop.main.run()
+} else {
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    let delegate = AppDelegate(runtime: runtime)
+    app.delegate = delegate
+    withExtendedLifetime(delegate) { app.run() }
+}

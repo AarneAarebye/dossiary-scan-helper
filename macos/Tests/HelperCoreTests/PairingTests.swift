@@ -80,9 +80,38 @@ private func status(_ block: () throws -> Void) -> Int? {
     let reopened = PairingStore(mode: .real(fileURL: file))
     #expect(reopened.isValid(token: token))
     #expect(reopened.pairedCount == 1)
-    reopened.forgetAll()
+    try reopened.forgetAll()
     #expect(!reopened.isValid(token: token))
     #expect(!PairingStore(mode: .real(fileURL: file)).isValid(token: token))
+}
+
+@Test func forgetAllReportsAFailedSaveAndStillForgetsInMemory() throws {
+    let blocker = FileManager.default.temporaryDirectory.appendingPathComponent("pairing-blocker-\(UUID().uuidString)")
+    try Data("not a folder".utf8).write(to: blocker)
+    defer { try? FileManager.default.removeItem(at: blocker) }
+    let file = blocker.appendingPathComponent("paired-browsers.json")
+    let logged = LockedLines()
+    let store = PairingStore(mode: .real(fileURL: file), makeCode: { "123456" }, log: { logged.append($0) })
+    _ = store.openWindow()
+    let token = try store.pair(code: "123456", client: "Chrome")
+    #expect(store.isValid(token: token))
+    #expect(logged.lines.count == 1)
+    #expect(logged.lines.allSatisfy { !$0.contains(token) })
+
+    var thrown: Error?
+    do { try store.forgetAll() } catch { thrown = error }
+    let error = try #require(thrown as? ProtocolError)
+    #expect(error.message.contains("Couldn't update the list of paired browsers"))
+    #expect(error.localizedDescription.contains("may still be able to scan"))
+    #expect(!store.isValid(token: token))
+    #expect(store.pairedCount == 0)
+}
+
+final class LockedLines: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [String] = []
+    func append(_ line: String) { lock.lock(); stored.append(line); lock.unlock() }
+    var lines: [String] { lock.lock(); defer { lock.unlock() }; return stored }
 }
 
 @Test func pairBodyValidation() throws {

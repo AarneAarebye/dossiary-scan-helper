@@ -26,14 +26,17 @@ public final class PairingStore: @unchecked Sendable {
     private let mode: Mode
     private let now: @Sendable () -> Date
     private let makeCode: @Sendable () -> String
+    private let log: @Sendable (String) -> Void
     private var browsers: [Browser] = []
     private var window: Window?
 
     public init(mode: Mode, now: @escaping @Sendable () -> Date = { Date() },
-                makeCode: @escaping @Sendable () -> String = PairingStore.randomCode) {
+                makeCode: @escaping @Sendable () -> String = PairingStore.randomCode,
+                log: @escaping @Sendable (String) -> Void = { _ in }) {
         self.mode = mode
         self.now = now
         self.makeCode = makeCode
+        self.log = log
         if case .real(let url) = mode, let data = try? Data(contentsOf: url),
            let saved = try? PairingStore.decoder.decode(SavedFile.self, from: data) {
             browsers = saved.browsers
@@ -92,7 +95,10 @@ public final class PairingStore: @unchecked Sendable {
             }
             let token = PairingStore.randomToken()
             browsers.append(Browser(tokenHash: PairingStore.hash(token), client: client, pairedAt: now()))
-            save()
+            // A failed save keeps the pairing working until the helper restarts.
+            do { try save() } catch {
+                log("Couldn't save the list of paired browsers: \(error.localizedDescription). The new pairing lasts until the helper restarts.")
+            }
             return token
         }
     }
@@ -105,7 +111,17 @@ public final class PairingStore: @unchecked Sendable {
 
     public var pairedCount: Int { locked { browsers.count } }
 
-    public func forgetAll() { locked { browsers = []; save() } }
+    /// Forgets every paired browser. Throws if the saved list can't be updated: the old browsers are
+    /// forgotten for now, but could scan again after a restart.
+    public func forgetAll() throws {
+        try locked {
+            browsers = []
+            do { try save() } catch {
+                throw ProtocolError(500, "Couldn't update the list of paired browsers: \(error.localizedDescription). "
+                                    + "They may still be able to scan after the helper restarts.")
+            }
+        }
+    }
 
     // MARK: Helpers
 
@@ -142,15 +158,14 @@ public final class PairingStore: @unchecked Sendable {
     }()
 
     /// Writes the hashed tokens (real mode only), readable by this user only. Call with the lock held.
-    /// A failed save keeps the pairing working until the helper restarts.
-    private func save() {
+    private func save() throws {
         guard case .real(let url) = mode else { return }
         let folder = url.deletingLastPathComponent()
         let fm = FileManager.default
-        try? fm.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        guard let data = try? PairingStore.encoder.encode(SavedFile(browsers: browsers)) else { return }
-        try? data.write(to: url, options: .atomic)
-        try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let data = try PairingStore.encoder.encode(SavedFile(browsers: browsers))
+        try data.write(to: url, options: .atomic)
+        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
     private func locked<T>(_ body: () throws -> T) rethrows -> T {
