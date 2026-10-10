@@ -15,6 +15,7 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
     /// Pending unit switches: the requested unit type and the waiter for it.
     private var selectWaiters: [String: (type: ICScannerFunctionalUnitType, once: Once<Void>)] = [:]
     private var collectors: [String: Collector] = [:]
+    private var readyWaiters: [String: Once<Void>] = [:]
 
     /// Pages arriving during one scan, and the waiter for the end of the scan.
     private final class Collector {
@@ -175,6 +176,7 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
 
     // MARK: Session helpers
 
+    /// Opens a session and waits until the device is ready. On failure no session is left open.
     @MainActor private func openSession(_ device: ICScannerDevice) async throws {
         device.delegate = self
         let _: Void = try await awaitCallback(timeout: 30) { once in
@@ -182,6 +184,19 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
                 once.resume(error.map { .failure($0) } ?? .success(()))
             }
         }
+        do { try await waitUntilReady(device) } catch {
+            device.requestCloseSession(options: [:]) { _ in }
+            throw error
+        }
+    }
+
+    /// The open-session completion can come before the functional units are known (seen with a network
+    /// scanner); `deviceDidBecomeReady` follows. Units already listed means the device is ready.
+    @MainActor private func waitUntilReady(_ device: ICScannerDevice) async throws {
+        if !device.availableFunctionalUnitTypes.isEmpty { return }
+        let id = ImageCaptureBackend.id(for: device)
+        defer { readyWaiters.removeValue(forKey: id) }
+        let _: Void = try await awaitCallback(timeout: 10) { once in readyWaiters[id] = once }
     }
 
     @MainActor private func select(_ device: ICScannerDevice, _ type: ICScannerFunctionalUnitType) async throws {
@@ -218,6 +233,10 @@ extension ImageCaptureBackend: ICScannerDeviceDelegate {
     public func device(_ device: ICDevice, didOpenSessionWithError error: Error?) {}
     public func device(_ device: ICDevice, didCloseSessionWithError error: Error?) {}
 
+    public func deviceDidBecomeReady(_ device: ICDevice) {
+        readyWaiters.removeValue(forKey: ImageCaptureBackend.id(for: device))?.resume(.success(()))
+    }
+
     public func scannerDevice(_ scanner: ICScannerDevice, didSelect functionalUnit: ICScannerFunctionalUnit, error: Error?) {
         let id = ImageCaptureBackend.id(for: scanner)
         // A unit is also selected unprompted right after the device appears; only the requested one counts.
@@ -245,6 +264,7 @@ extension ImageCaptureBackend: ICScannerDeviceDelegate {
         devices.removeValue(forKey: id)
         infos.removeValue(forKey: id)
         let gone = ProtocolError(503, "\(device.name ?? "The scanner") was disconnected.")
+        readyWaiters.removeValue(forKey: id)?.resume(.failure(gone))
         selectWaiters.removeValue(forKey: id)?.once.resume(.failure(gone))
         if let collector = collectors.removeValue(forKey: id) {
             collector.watchdog?.cancel()
