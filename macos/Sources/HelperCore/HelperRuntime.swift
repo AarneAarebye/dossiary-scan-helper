@@ -16,7 +16,8 @@ public final class HelperRuntime: @unchecked Sendable {
             backend = FakeBackend()
             pairing = PairingStore(mode: .fake)
         } else {
-            throw UsageError(message: "Real scanners arrive in a later build. Run with --fake-scanners.")
+            backend = ImageCaptureBackend(log: { [log] in log.write($0) })
+            pairing = PairingStore(mode: .real(fileURL: PairingStore.defaultFileURL))
         }
         let write: @Sendable (String) -> Void = { [log] in log.write($0) }
         router = Router(backend: backend, pairing: pairing, log: write)
@@ -25,6 +26,10 @@ public final class HelperRuntime: @unchecked Sendable {
 
     public func start() throws {
         try server.start()
+        if let real = backend as? ImageCaptureBackend {
+            if Thread.isMainThread { MainActor.assumeIsolated { real.start() } }
+            else { DispatchQueue.main.async { real.start() } }
+        }
         log.write("Dossiary Scan Helper \(HelperVersion.string) listening on 127.0.0.1:\(options.port)"
                   + (options.fakeScanners ? " with fake scanners." : "."))
     }
