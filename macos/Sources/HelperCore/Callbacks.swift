@@ -1,7 +1,8 @@
 import Foundation
 
-public struct CallbackTimeout: Error, CustomStringConvertible {
+public struct CallbackTimeout: LocalizedError, CustomStringConvertible {
     public var description: String { "The scanner didn't answer in time." }
+    public var errorDescription: String? { description }
 }
 
 /// Resumes a continuation at most once: the first of a delegate callback and a timeout wins.

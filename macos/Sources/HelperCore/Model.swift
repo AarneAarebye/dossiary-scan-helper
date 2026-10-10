@@ -42,8 +42,9 @@ public struct ScanSettings: Equatable, Sendable {
 }
 
 /// A protocol error: the HTTP status plus a message for a person.
-public struct ProtocolError: Error, Equatable, Sendable {
+public struct ProtocolError: LocalizedError, Equatable, Sendable {
     public let status: Int
     public let message: String
     public init(_ status: Int, _ message: String) { self.status = status; self.message = message }
+    public var errorDescription: String? { message }
 }

@@ -12,7 +12,8 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
     private var infos: [String: ScannerInfo] = [:]
     private var busy: Set<String> = []
     private var changeHandler: (@Sendable () -> Void)?
-    private var selectWaiters: [String: Once<Void>] = [:]
+    /// Pending unit switches: the requested unit type and the waiter for it.
+    private var selectWaiters: [String: (type: ICScannerFunctionalUnitType, once: Once<Void>)] = [:]
     private var collectors: [String: Collector] = [:]
 
     /// Pages arriving during one scan, and the waiter for the end of the scan.
@@ -114,7 +115,7 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
         defer { device.requestCloseSession(options: [:]) { _ in } }
 
         let type: ICScannerFunctionalUnitType = settings.source == .feeder ? .documentFeeder : .flatbed
-        do { try await select(device, type) } catch {
+        do { try await select(device, type) } catch let error as ProtocolError { throw error } catch {
             throw ProtocolError(503, "\(info.name) couldn't switch to its \(settings.source.rawValue): \(error.localizedDescription)")
         }
         configure(device.selectedFunctionalUnit, settings)
@@ -187,8 +188,12 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
         if device.selectedFunctionalUnit.type == type { return }
         let id = ImageCaptureBackend.id(for: device)
         let _: Void = try await awaitCallback(timeout: 30) { once in
-            selectWaiters[id] = once
+            selectWaiters[id] = (type, once)
             device.requestSelect(type)
+        }
+        guard device.selectedFunctionalUnit.type == type else {
+            let unit = type == .documentFeeder ? Source.feeder.rawValue : Source.flatbed.rawValue
+            throw ProtocolError(503, "\(device.name ?? "The scanner") couldn't switch to its \(unit).")
         }
     }
 }
@@ -215,7 +220,10 @@ extension ImageCaptureBackend: ICScannerDeviceDelegate {
 
     public func scannerDevice(_ scanner: ICScannerDevice, didSelect functionalUnit: ICScannerFunctionalUnit, error: Error?) {
         let id = ImageCaptureBackend.id(for: scanner)
-        selectWaiters.removeValue(forKey: id)?.resume(error.map { .failure($0) } ?? .success(()))
+        // A unit is also selected unprompted right after the device appears; only the requested one counts.
+        guard let waiter = selectWaiters[id], error != nil || functionalUnit.type == waiter.type else { return }
+        selectWaiters.removeValue(forKey: id)
+        waiter.once.resume(error.map { .failure($0) } ?? .success(()))
     }
 
     public func scannerDevice(_ scanner: ICScannerDevice, didScanTo url: URL) {
@@ -237,7 +245,7 @@ extension ImageCaptureBackend: ICScannerDeviceDelegate {
         devices.removeValue(forKey: id)
         infos.removeValue(forKey: id)
         let gone = ProtocolError(503, "\(device.name ?? "The scanner") was disconnected.")
-        selectWaiters.removeValue(forKey: id)?.resume(.failure(gone))
+        selectWaiters.removeValue(forKey: id)?.once.resume(.failure(gone))
         if let collector = collectors.removeValue(forKey: id) {
             collector.watchdog?.cancel()
             collector.once.resume(.success((collector.urls, gone)))
