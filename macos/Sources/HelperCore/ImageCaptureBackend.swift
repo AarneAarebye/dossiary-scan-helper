@@ -15,7 +15,34 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
     /// Pending unit switches: the requested unit type and the waiter for it.
     private var selectWaiters: [String: (type: ICScannerFunctionalUnitType, once: Once<Void>)] = [:]
     private var collectors: [String: Collector] = [:]
-    private var readyWaiters: [String: Once<Void>] = [:]
+    private var sessionStarts: [String: SessionStart] = [:]
+
+    /// What one opening session has sent so far: its own `deviceDidBecomeReady` and its automatic first
+    /// `didSelect`. Registered before the open request, since ready can arrive with the open completion.
+    private final class SessionStart {
+        private var ready = false, selected = false
+        private var readyWaiter: Once<Void>?, selectWaiter: Once<Void>?
+        private var failure: Error?
+
+        func waitForReady(_ once: Once<Void>) {
+            if let failure { once.resume(.failure(failure)) } else if ready { once.resume(.success(())) } else { readyWaiter = once }
+        }
+        func waitForSelect(_ once: Once<Void>) {
+            if let failure { once.resume(.failure(failure)) } else if selected { once.resume(.success(())) } else { selectWaiter = once }
+        }
+        func markReady() { ready = true; readyWaiter?.resume(.success(())); readyWaiter = nil }
+        /// Returns false once the session's first selection has already been seen.
+        func markSelected() -> Bool {
+            if selected { return false }
+            selected = true; selectWaiter?.resume(.success(())); selectWaiter = nil
+            return true
+        }
+        func fail(_ error: Error) {
+            failure = error
+            readyWaiter?.resume(.failure(error)); selectWaiter?.resume(.failure(error))
+            readyWaiter = nil; selectWaiter = nil
+        }
+    }
 
     /// Pages arriving during one scan, and the waiter for the end of the scan.
     private final class Collector {
@@ -176,27 +203,32 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
 
     // MARK: Session helpers
 
-    /// Opens a session and waits until the device is ready. On failure no session is left open.
+    /// Opens a session and waits for that session's own start: `deviceDidBecomeReady` (up to 10 s), then the
+    /// device's automatic first `didSelect` (up to 2 s; some drivers may not send one). This matters: if a scan
+    /// is requested before the session's ready/initial selection arrive, the device writes the page but its
+    /// `didScanTo`/`didCompleteScan` callbacks are never delivered and the scan hangs (Canon MF650C over
+    /// TCP/IP, 4 of 4 times). A reopened session lists its units at once from cache, so the units can't
+    /// stand in for readiness. On failure no session is left open.
     @MainActor private func openSession(_ device: ICScannerDevice) async throws {
         device.delegate = self
+        let id = ImageCaptureBackend.id(for: device)
+        let start = SessionStart()
+        sessionStarts[id] = start
+        defer { if sessionStarts[id] === start { sessionStarts.removeValue(forKey: id) } }
         let _: Void = try await awaitCallback(timeout: 30) { once in
             device.requestOpenSession(options: [:]) { error in
                 once.resume(error.map { .failure($0) } ?? .success(()))
             }
         }
-        do { try await waitUntilReady(device) } catch {
+        do {
+            let _: Void = try await awaitCallback(timeout: 10) { once in start.waitForReady(once) }
+            do {
+                let _: Void = try await awaitCallback(timeout: 2) { once in start.waitForSelect(once) }
+            } catch is CallbackTimeout {}  // no automatic selection: go on
+        } catch {
             device.requestCloseSession(options: [:]) { _ in }
             throw error
         }
-    }
-
-    /// The open-session completion can come before the functional units are known (seen with a network
-    /// scanner); `deviceDidBecomeReady` follows. Units already listed means the device is ready.
-    @MainActor private func waitUntilReady(_ device: ICScannerDevice) async throws {
-        if !device.availableFunctionalUnitTypes.isEmpty { return }
-        let id = ImageCaptureBackend.id(for: device)
-        defer { readyWaiters.removeValue(forKey: id) }
-        let _: Void = try await awaitCallback(timeout: 10) { once in readyWaiters[id] = once }
     }
 
     @MainActor private func select(_ device: ICScannerDevice, _ type: ICScannerFunctionalUnitType) async throws {
@@ -234,11 +266,13 @@ extension ImageCaptureBackend: ICScannerDeviceDelegate {
     public func device(_ device: ICDevice, didCloseSessionWithError error: Error?) {}
 
     public func deviceDidBecomeReady(_ device: ICDevice) {
-        readyWaiters.removeValue(forKey: ImageCaptureBackend.id(for: device))?.resume(.success(()))
+        sessionStarts[ImageCaptureBackend.id(for: device)]?.markReady()
     }
 
     public func scannerDevice(_ scanner: ICScannerDevice, didSelect functionalUnit: ICScannerFunctionalUnit, error: Error?) {
         let id = ImageCaptureBackend.id(for: scanner)
+        // The session's own automatic first selection is consumed by the session-start wait.
+        if let start = sessionStarts[id], start.markSelected() { return }
         // A unit is also selected unprompted right after the device appears; only the requested one counts.
         guard let waiter = selectWaiters[id], error != nil || functionalUnit.type == waiter.type else { return }
         selectWaiters.removeValue(forKey: id)
@@ -264,7 +298,7 @@ extension ImageCaptureBackend: ICScannerDeviceDelegate {
         devices.removeValue(forKey: id)
         infos.removeValue(forKey: id)
         let gone = ProtocolError(503, "\(device.name ?? "The scanner") was disconnected.")
-        readyWaiters.removeValue(forKey: id)?.resume(.failure(gone))
+        sessionStarts.removeValue(forKey: id)?.fail(gone)
         selectWaiters.removeValue(forKey: id)?.once.resume(.failure(gone))
         if let collector = collectors.removeValue(forKey: id) {
             collector.watchdog?.cancel()
