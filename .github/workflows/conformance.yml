@@ -38,3 +38,18 @@ jobs:
         env:
           SCAN_HELPER_URL: http://127.0.0.1:8766
         run: python -m unittest discover -s conformance -v
+
+  macos-helper:
+    timeout-minutes: 20
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Unit tests
+        working-directory: macos
+        run: swift test
+      - name: Conformance suite against the helper with fake scanners
+        working-directory: macos
+        run: scripts/run-conformance.sh
