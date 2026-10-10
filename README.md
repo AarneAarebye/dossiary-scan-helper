@@ -33,7 +33,7 @@ your scanner. The reference helper's code is always `000000`.
 
 ### Try it with Dossiary
 
-Dossiary's **📷 Scan** dialog (the release after v1.43.0) finds a helper
+Dossiary's **📷 Scan** dialog (v1.44.0 and later) finds a helper
 on port 8766 by itself:
 
 1. Start the reference helper as above.
