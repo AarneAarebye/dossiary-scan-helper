@@ -15,6 +15,7 @@ final class PairingPanel: NSPanel {
         title = "Pair a browser"
         isReleasedWhenClosed = false
         level = .floating
+        hidesOnDeactivate = false  // NSPanel hides on deactivate by default; the code must stay visible while typing it in the browser
         codeLabel.font = .monospacedDigitSystemFont(ofSize: 40, weight: .semibold)
         codeLabel.alignment = .center
         detailLabel.alignment = .center
