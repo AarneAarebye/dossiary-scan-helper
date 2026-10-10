@@ -31,6 +31,23 @@ Each browser pairs with a helper once: it sends a code the helper shows
 and gets a token for every later request, so other websites can't use
 your scanner. The reference helper's code is always `000000`.
 
+### Try it with Dossiary
+
+Dossiary's **📷 Scan** dialog (the release after v1.43.0) finds a helper
+on port 8766 by itself:
+
+1. Start the reference helper as above.
+2. Open Dossiary and click **📷 Scan**.
+3. The dialog shows the helper as "not paired yet". Type `000000` and
+   click **Pair**.
+4. The seven fake scanners appear. Choose one and click **Scan**: the
+   generated PDF lands in the library's Inbox.
+
+"Fake Splitter" offers "split on blank pages", so Dossiary also shows
+**📸 Scan Multi** while it runs. Dossiary's
+`tests/manual_scan_reference_helper.py` runs this same check
+automatically.
+
 ## Run the conformance suite
 
 With a helper running (the reference helper, or a native helper started
