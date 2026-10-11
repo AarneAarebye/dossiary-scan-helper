@@ -5,9 +5,7 @@ scanner your Mac or Windows PC already supports. Dossiary runs in the
 browser, which can't reach a scanner, so this small helper does the
 scanning and hands the result to Dossiary over a local connection.
 
-> **Status:** early development. This repo currently holds the protocol,
-> the conformance test suite and a reference helper with fake scanners.
-> The macOS and Windows helpers come next.
+> **Status:** the macOS helper is available (see [docs/install-macos.md](docs/install-macos.md)). The Windows helper comes next. This repo also holds the protocol, the conformance test suite and a reference helper with fake scanners.
 
 ## What's here
 
@@ -16,6 +14,7 @@ scanning and hands the result to Dossiary over a local connection.
 | [`PROTOCOL.md`](PROTOCOL.md) | The bridge protocol every helper implements. |
 | `reference/` | A minimal Python helper with fake scanners, for developing Dossiary and testing the suite. Standard library only. |
 | `conformance/` | Tests any running helper over HTTP against `PROTOCOL.md`. |
+| `macos/` | The macOS helper: a Swift menu bar app using ImageCaptureCore. See [macos/README.md](macos/README.md). |
 
 ## Run the reference helper
 
@@ -56,6 +55,8 @@ with `--fake-scanners`):
     SCAN_HELPER_URL=http://127.0.0.1:8766 python3 -m unittest discover -s conformance -v
 
 The suite pairs automatically with the fake-mode code `000000`.
+
+For the macOS helper, `macos/scripts/run-conformance.sh` builds it, starts it with fake scanners and runs the suite.
 
 The reference helper's own unit tests:
 
