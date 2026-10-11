@@ -25,13 +25,11 @@ class OriginAllowedTests(unittest.TestCase):
             self.assertFalse(origin_allowed(origin), origin)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class OcrEndpointTests(unittest.TestCase):
     def setUp(self):
         self.now = 1000.0
+        self.saved_jobs = server.OCR_JOBS
         server.OCR_JOBS = OcrJobs(delay=2.0, clock=lambda: self.now)
         self.httpd = server.make_server("127.0.0.1", 0)
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
@@ -41,6 +39,7 @@ class OcrEndpointTests(unittest.TestCase):
     def tearDown(self):
         self.httpd.shutdown()
         self.httpd.server_close()
+        server.OCR_JOBS = self.saved_jobs
 
     def call(self, method, path, body=None, token="use"):
         headers = {"Content-Type": "application/json"}
@@ -69,3 +68,7 @@ class OcrEndpointTests(unittest.TestCase):
     def test_ocr_paths_without_an_id_are_unknown(self):
         self.assertEqual(self.call("GET", "/ocr/")[0], 404)
         self.assertEqual(self.call("GET", "/ocr")[0], 404)
+
+
+if __name__ == "__main__":
+    unittest.main()

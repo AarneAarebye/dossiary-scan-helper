@@ -43,7 +43,7 @@ class ValidateTests(unittest.TestCase):
         self.assertEqual(scanner.id, "fake:feeder")
         self.assertEqual(settings, {"source": "feeder", "duplex": False, "colorMode": "color",
                                     "resolution": 150, "format": "pdf", "extras": {},
-                                "ocr": False, "ocrLanguages": []})
+                                    "ocr": False, "ocrLanguages": []})
 
     def test_400s(self):
         self.assertStatus([1, 2], 400)
@@ -138,9 +138,6 @@ class SimulateTests(unittest.TestCase):
         self.assertGreaterEqual(time.monotonic() - start, 0.2)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class OcrFakeTests(unittest.TestCase):
     def test_eight_scanners_with_fake_ocr_last(self):
@@ -167,3 +164,7 @@ class OcrFakeTests(unittest.TestCase):
         self.assertEqual((settings["ocr"], settings["ocrLanguages"]), (True, []))
         _, settings = validate({"scanner": "fake:flatbed", "ocr": False, "ocrLanguages": ["xyz"]})
         self.assertIs(settings["ocr"], False)
+
+
+if __name__ == "__main__":
+    unittest.main()
