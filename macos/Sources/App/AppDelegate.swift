@@ -85,13 +85,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 alert.messageText = "Couldn't forget the paired browsers"
                 alert.informativeText = error.localizedDescription
                 NSApp.activate(ignoringOtherApps: true)
-            alert.runModal()
+                alert.runModal()
             }
         case .startAtLogin:
             do { try LoginItem.set(!LoginItem.isEnabled) } catch {
                 let alert = NSAlert(error: error)
                 NSApp.activate(ignoringOtherApps: true)
-            alert.runModal()
+                alert.runModal()
             }
         case .openLog:
             NSWorkspace.shared.open(Log.shared.url)
