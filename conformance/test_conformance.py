@@ -499,6 +499,11 @@ class OcrTests(unittest.TestCase):
         self.assertNotIn(b"Flatbed page 1", base64.b64decode(f["data"]), "the immediate file is the plain scan")
         first = request("GET", f"/ocr/{f['ocrJob']}")
         self.assertEqual(first.status, 202, "the result takes about 2 seconds")
+        first_body = first.json()
+        self.assertIs(first_body["ok"], True)
+        self.assertIn(first_body["state"], ("queued", "running"))
+        self.assertIsInstance(first_body["position"], int)
+        self.assertGreaterEqual(first_body["position"], 0)
         result = self.wait_for_result(f["ocrJob"])
         self.assertEqual(result.status, 200, result.body[:200])
         body = result.json()
@@ -519,6 +524,7 @@ class OcrTests(unittest.TestCase):
         assert_error(self, scan({"scanner": "fake:ocr", "ocr": "yes"}), 400)
         assert_error(self, scan({"scanner": "fake:ocr", "ocr": True, "ocrLanguages": "deu"}), 400)
         assert_error(self, scan({"scanner": "fake:ocr", "ocr": True, "ocrLanguages": [1]}), 400)
+        assert_error(self, scan({"scanner": "fake:ocr", "ocr": "yes", "ocrLanguages": ["xyz"]}), 400)
         assert_error(self, scan({"scanner": "fake:flatbed", "ocr": True}), 422)
         assert_error(self, scan({"scanner": "fake:ocr", "ocr": True, "ocrLanguages": ["xyz"]}), 422)
 
@@ -526,6 +532,8 @@ class OcrTests(unittest.TestCase):
         resp = scan({"scanner": "fake:flatbed", "ocr": False})
         self.assertEqual(resp.status, 200, resp.body[:200])
         self.assertNotIn("ocrJob", resp.json()["files"][0])
+        # Without ocr: true, ocrLanguages is type-checked only.
+        self.assertEqual(scan({"scanner": "fake:flatbed", "ocrLanguages": ["xyz"]}).status, 200)
 
     def test_unknown_job_and_missing_id(self):
         assert_error(self, request("GET", "/ocr/no-such-job-0000000000000"), 404)

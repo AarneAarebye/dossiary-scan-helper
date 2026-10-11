@@ -304,7 +304,8 @@ defence, and helpers listen on `127.0.0.1` only.
 
 Every helper has a fake scanner mode (`--fake-scanners` for the native
 helpers; the reference helper has nothing else). It exists for testing
-only. It replaces the real scanners with exactly these seven, plus `fake:ocr` when the helper does background OCR, so one
+only. It replaces the real scanners with exactly these seven, plus
+`fake:ocr` when the helper does background OCR, so one
 conformance suite can test every helper without hardware, and fixes the
 pairing code at `000000` (see Pairing). Pages carry the text shown; `""`
 is a blank page.
@@ -345,7 +346,10 @@ What a scan returns:
 - **`fake:ocr`**: without `ocr: true`, like any flatbed. With `ocr: true`:
   one page *without* the text `Flatbed page 1`, and an `ocrJob` that answers
   202 for 2 seconds after the scan, then 200 with one page whose content has
-  `Flatbed page 1`.
+  `Flatbed page 1`. Both PDFs must be written so that a plain byte search
+  works: the result's bytes contain the literal text `Flatbed page 1` (for
+  example in an uncompressed content stream, as the reference helper
+  writes it) and the plain file's bytes don't.
 
 In fake scanner mode, messages are always English and exact, even in a
 helper that localizes the messages for real scanners:
