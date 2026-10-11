@@ -217,7 +217,9 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
         defer { if sessionStarts[id] === start { sessionStarts.removeValue(forKey: id) } }
         let _: Void = try await awaitCallback(timeout: 30) { once in
             device.requestOpenSession(options: [:]) { error in
-                once.resume(error.map { .failure($0) } ?? .success(()))
+                let resumed = once.resume(error.map { .failure($0) } ?? .success(()))
+                // Opened after the 30 s timeout gave up: close it, or every later open on this device fails.
+                if !resumed && error == nil { device.requestCloseSession(options: [:]) { _ in } }
             }
         }
         do {

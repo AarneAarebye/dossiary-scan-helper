@@ -24,7 +24,26 @@ public final class Router: @unchecked Sendable {
 
     public static func errorBody(_ message: String) -> [String: Any] { ["ok": false, "partial": false, "message": message] }
 
+    /// DNS-rebinding defence: only loopback names are accepted in Host. A missing Host (HTTP/1.0) is fine.
+    static func hostAllowed(_ host: String?) -> Bool {
+        guard let host else { return true }
+        let h = host.trimmingCharacters(in: .whitespaces).lowercased()
+        var name = h
+        if h.hasPrefix("[") {
+            guard let close = h.firstIndex(of: "]") else { return false }
+            name = String(h[...close])
+            let rest = h[h.index(after: close)...]
+            if !(rest.isEmpty || rest.hasPrefix(":")) { return false }
+        } else if let colon = h.firstIndex(of: ":") {
+            name = String(h[..<colon])
+        }
+        return ["127.0.0.1", "localhost", "[::1]"].contains(name)
+    }
+
     public func handle(_ request: HTTPRequest) async -> HTTPResponse {
+        guard Router.hostAllowed(request.header("host")) else {
+            return .json(403, Router.errorBody("This scan helper only answers requests addressed to localhost."), origin: nil)
+        }
         let origin = request.header("origin")
         guard Origins.allowed(origin) else {
             return .json(403, Router.errorBody("This origin may not use the scan helper."), origin: nil)

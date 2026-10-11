@@ -20,3 +20,16 @@ import Testing
         #expect(error is CallbackTimeout)
     }
 }
+
+@Test func onceReportsWhetherItResumed() async throws {
+    final class Box: @unchecked Sendable { var first = false; var second = true }
+    let box = Box()
+    let _: Int = try await awaitCallback(timeout: nil) { once in
+        DispatchQueue.main.async {
+            box.first = once.resume(.success(1))
+            box.second = once.resume(.success(2))
+        }
+    }
+    #expect(box.first)
+    #expect(!box.second)
+}

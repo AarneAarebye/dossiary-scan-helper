@@ -129,3 +129,17 @@ private func object(_ response: HTTPResponse) -> [String: Any] {
     #expect(await slow.status == 200)
     #expect(await router.handle(req("POST", "/scan", token: token, body: #"{"scanner":"fake:flatbed"}"#)).status == 200)
 }
+
+@Test func hostHeaderRules() async {
+    let (router, _) = makeRouter()
+    for host in [nil, "127.0.0.1", "127.0.0.1:8766", "localhost", "LOCALHOST:8766", "[::1]", "[::1]:8766"] {
+        let r = await router.handle(req("GET", "/health", headers: host.map { ["Host": $0] } ?? [:]))
+        #expect(r.status == 200, "\(host ?? "none")")
+    }
+    for host in ["evil.example:8766", "evil.example", "localhost.evil.example", "127.0.0.1.evil.example"] {
+        let r = await router.handle(req("OPTIONS", "/scan", headers: ["Host": host]))
+        #expect(r.status == 403, "\(host)")
+        #expect(r.header("Access-Control-Allow-Origin") == nil)
+        #expect(object(r)["ok"] as? Bool == false)
+    }
+}

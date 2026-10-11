@@ -18,7 +18,7 @@ Needs macOS 14 (Sonoma) or later.
    minutes.
 3. Type the code in Dossiary and click **Pair**. Your scanners appear in the dialog.
 
-Each browser pairs once. **Forget paired browsers** in the menu disconnects them all.
+Each browser pairs once. **Forget paired browsers (N)** in the menu disconnects them all. N is the number of paired browsers; the item is greyed out when none are paired.
 
 ## If a scanner is missing
 

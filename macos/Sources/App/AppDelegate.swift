@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let alert = NSAlert()
             alert.messageText = "Dossiary Scan Helper couldn't start"
             alert.informativeText = "\(error)"
+            NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
             NSApp.terminate(nil)
             return
@@ -83,12 +84,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let alert = NSAlert()
                 alert.messageText = "Couldn't forget the paired browsers"
                 alert.informativeText = error.localizedDescription
-                alert.runModal()
+                NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
             }
         case .startAtLogin:
             do { try LoginItem.set(!LoginItem.isEnabled) } catch {
                 let alert = NSAlert(error: error)
-                alert.runModal()
+                NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
             }
         case .openLog:
             NSWorkspace.shared.open(Log.shared.url)

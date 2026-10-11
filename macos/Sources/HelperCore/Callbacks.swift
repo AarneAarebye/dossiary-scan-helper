@@ -12,12 +12,16 @@ public final class Once<T: Sendable>: @unchecked Sendable {
 
     init(_ continuation: CheckedContinuation<T, Error>) { self.continuation = continuation }
 
-    public func resume(_ result: Result<T, Error>) {
+    /// Returns true if this call resumed the continuation, false if it was already resumed.
+    @discardableResult
+    public func resume(_ result: Result<T, Error>) -> Bool {
         lock.lock()
         let pending = continuation
         continuation = nil
         lock.unlock()
-        pending?.resume(with: result)
+        guard let pending else { return false }
+        pending.resume(with: result)
+        return true
     }
 }
 
