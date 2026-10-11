@@ -11,7 +11,8 @@ IDENTITY="${DEVELOPER_ID:-Developer ID Application}"
 PROFILE="${NOTARY_PROFILE:-dossiary-notary}"
 
 [ -d "$APP" ] || { echo "Run scripts/build-app.sh first."; exit 1; }
-security find-identity -v -p codesigning | grep -q "$IDENTITY" || {
+identities=$(security find-identity -v -p codesigning || true)
+grep -qF "$IDENTITY" <<<"$identities" || {
   echo "No \"$IDENTITY\" certificate in the keychain. See macos/README.md, \"Signing setup\"."; exit 1; }
 
 codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"

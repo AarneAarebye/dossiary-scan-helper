@@ -35,7 +35,8 @@ Nothing here goes into the repo or CI.
    Certificate From a Certificate Authority…, enter your email, choose "Saved to disk". On
    developer.apple.com › Certificates, add a **Developer ID Application** certificate with that
    request, download it and double-click it. `security find-identity -v -p codesigning` then lists
-   it.
+   it. If more than one Developer ID Application certificate is installed, choose one with
+   `DEVELOPER_ID="Developer ID Application: <name> (<team id>)" scripts/sign-and-notarize.sh`.
 2. **Notarization password.** At account.apple.com › Sign-In and Security › App-Specific Passwords,
    create one, then run (it asks for the password and keeps it in the keychain):
 
