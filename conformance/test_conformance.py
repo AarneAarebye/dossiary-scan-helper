@@ -498,7 +498,7 @@ class OcrTests(unittest.TestCase):
         self.assertRegex(f["ocrJob"], TOKEN_PATTERN)
         self.assertNotIn(b"Flatbed page 1", base64.b64decode(f["data"]), "the immediate file is the plain scan")
         first = request("GET", f"/ocr/{f['ocrJob']}")
-        self.assertEqual(first.status, 202, "the result takes about 2 seconds")
+        self.assertEqual(first.status, 202, "fake:ocr must answer 202 for about 2 s after the scan")
         first_body = first.json()
         self.assertIs(first_body["ok"], True)
         self.assertIn(first_body["state"], ("queued", "running"))

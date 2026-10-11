@@ -162,7 +162,9 @@ Only `scanner` is required. Missing fields use the scanner's defaults:
 the first `source`, `colorMode` and `resolution`, `duplex` false,
 `format` `"pdf"`, every extra off.
 `ocr` (default false) asks for a searchable PDF in the background;
-`ocrLanguages` (default: the helper's choice) picks its languages.
+`ocrLanguages` picks its languages, most likely first (a helper may use the
+order as priority). Missing or `[]` means the helper's choice; a repeated
+code counts once.
 
 The request blocks until the scan has finished. Clients must not set a
 timeout: a large feeder batch can take minutes.
@@ -212,9 +214,13 @@ device) → **500**.
 - `partial: true` (with `ok: false`) means something went wrong but
   usable pages came back, for example a paper jam after the second
   sheet. `files` then holds those pages and `message` says what happened.
-- `ocrJob`: present on every file when the request had `ocr: true`. The
-  file is then the plain scan, and `GET /ocr/<job>` delivers its
-  searchable version (see Background OCR).
+- `ocrJob`: present on every file when the request had `ocr: true`,
+  including a `partial: true` scan; a scan answering with an error has no
+  jobs. The file is then the plain scan, and `GET /ocr/<job>` delivers its
+  searchable version (see Background OCR). Each file has its own job (with
+  `splitOnBlank`, one per document). A job id is random, at least 128 bits,
+  made of URL-safe characters (letters, digits, `-`, `_`) and at least 22
+  characters long, like a pairing token.
 
 A scan result, including `partial: true`, is answered with **200**; only
 the codes under Errors are non-200.
@@ -232,13 +238,17 @@ Needs the token, like `/scan`.
 | Answer | Meaning |
 |---|---|
 | **202** `{"ok": true, "state": "queued", "position": 2}` | Not done yet. `state` is `queued` or `running`; `position` counts the jobs ahead of it (0 while it runs). |
-| **200** `{"ok": true, "files": [{"name": "…", "pages": 3, "data": "<base64>"}]}` | The searchable PDF, with the same `name` and `pages` as the plain file. |
+| **200** `{"ok": true, "files": [{"name": "…", "pages": 3, "data": "<base64>"}]}` | The searchable PDF, with the same `name` and `pages` as the plain file. `files` always holds exactly one entry. |
 | **404** | Unknown job, already fetched, or expired. |
-| **500** | OCR failed; the message says why. |
+| **500** | OCR failed; the usual error body says why. This is final: the job is gone (a later fetch answers 404), and the client may fall back to its own OCR. |
 
 - Fetching a **200** deletes the result: a second fetch answers 404.
-- A helper keeps a finished result until it's fetched, at most 7 days,
-  and keeps it across its own restarts (on disk).
+- A page whose text can't be recognized is left without text; the job
+  still answers 200. 500 means no searchable PDF could be made at all.
+- Jobs and results expire 7 days after their scan. Until then a helper
+  keeps them across its own restarts (on disk): unfinished jobs resume in
+  their original order, and `position` counts only the current queue.
+- CORS and preflight work as for every other endpoint.
 - A new scan may start while OCR jobs run; only a second simultaneous scan
   gets 409.
 - Clients poll every few seconds, without a timeout of their own beyond
@@ -255,7 +265,7 @@ Needs the token, like `/scan`.
 | 405 | wrong method for the endpoint |
 | 409 | a scan is already running |
 | 422 | a setting the scanner doesn't offer |
-| 500 | the scan failed and no usable page came back |
+| 500 | the scan failed and no usable page came back, or a background OCR job failed (`/ocr/<job>`) |
 | 503 | scanner offline, or the system denied access |
 
 Every error body is `{"ok": false, "partial": false, "message": "..."}`
@@ -287,8 +297,8 @@ carries `Access-Control-Allow-Origin: <that origin>` and `Vary: Origin`.
 `Access-Control-Request-Private-Network: true`, the answer also carries
 `Access-Control-Allow-Private-Network: true`.
 
-`GET /health` and `GET /scanners` keep answering while a scan runs; only
-a second `POST /scan` gets 409.
+`GET /health`, `GET /scanners` and `GET /ocr/<job>` keep answering while a
+scan runs; only a second `POST /scan` gets 409.
 
 ## Security considerations
 

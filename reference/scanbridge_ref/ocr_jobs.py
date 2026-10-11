@@ -33,6 +33,7 @@ class OcrJobs:
         """(status, body) for GET /ocr/<job_id>."""
         with self._lock:
             now = self._clock()
+            # Expired jobs are dropped here, on the next fetch -- enough for fake mode.
             for jid in [j for j, job in self._jobs.items() if now - job["created_at"] > self._retention]:
                 del self._jobs[jid]
             job = self._jobs.get(job_id)
