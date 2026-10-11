@@ -29,6 +29,15 @@ FAKE_SCANNERS = {
     "fake:empty": {"name": "Fake Empty Feeder", "sources": ["feeder"], "duplex": False, "extras": []},
 }
 FAKE_IDS = list(FAKE_SCANNERS)
+# Optional until every helper does background OCR (PROTOCOL.md, "Fake scanner mode").
+OPTIONAL_FAKES = {
+    "fake:ocr": {"name": "Fake OCR Scanner", "sources": ["flatbed"], "duplex": False, "extras": [],
+                 "ocr": {"languages": ["deu", "eng"]}},
+}
+
+
+def listed_ids():
+    return {s["id"] for s in request("GET", "/scanners").json()["scanners"]}
 
 
 def pair_request(body, **kw):
@@ -91,7 +100,9 @@ class ScannersTests(unittest.TestCase):
         resp = request("GET", "/scanners")
         self.assertEqual(resp.status, 200)
         scanners = resp.json()["scanners"]
-        self.assertEqual(sorted(s["id"] for s in scanners), sorted(FAKE_IDS))
+        ids = sorted(s["id"] for s in scanners)
+        optional = sorted(i for i in ids if i in OPTIONAL_FAKES)
+        self.assertEqual(ids, sorted(FAKE_IDS + optional))
         for s in scanners:
             self.assertIsInstance(s["name"], str)
             self.assertTrue(set(s["sources"]) <= {"flatbed", "feeder"} and s["sources"])
@@ -100,11 +111,16 @@ class ScannersTests(unittest.TestCase):
             self.assertTrue(all(isinstance(r, int) for r in s["resolutions"]) and s["resolutions"])
             self.assertEqual(s["resolutions"], sorted(s["resolutions"]))
             self.assertIsInstance(s["extras"], list)
+            if "ocr" in s:
+                self.assertIsInstance(s["ocr"]["languages"], list)
+                self.assertTrue(s["ocr"]["languages"] and all(isinstance(l, str) for l in s["ocr"]["languages"]))
 
     def test_fake_scanner_table(self):
         scanners = {s["id"]: s for s in request("GET", "/scanners").json()["scanners"]}
-        self.assertEqual(len(scanners), len(FAKE_SCANNERS))
-        for scanner_id, expected in FAKE_SCANNERS.items():
+        expected_table = dict(FAKE_SCANNERS)
+        expected_table.update({i: e for i, e in OPTIONAL_FAKES.items() if i in scanners})
+        self.assertEqual(len(scanners), len(expected_table))
+        for scanner_id, expected in expected_table.items():
             actual = dict(scanners[scanner_id])
             # The order of extras carries no meaning; every other list's order does.
             actual["extras"] = sorted(actual["extras"])
@@ -439,6 +455,92 @@ class PairingTests(unittest.TestCase):
                 assert_error(self, pair_request(body), 400)
         assert_error(self, request("POST", "/pair", raw_body=b"{not json", auth=None,
                                    headers={"Content-Type": "application/json"}), 400)
+
+
+class OcrTests(unittest.TestCase):
+    """Background OCR (PROTOCOL.md, "Background OCR"). Runs only against a helper listing fake:ocr."""
+
+    @classmethod
+    def setUpClass(cls):
+        if "fake:ocr" not in listed_ids():
+            raise unittest.SkipTest("helper doesn't list fake:ocr (background OCR is optional)")
+
+    def ocr_scan(self, **extra):
+        return scan({"scanner": "fake:ocr", "ocr": True, **extra})
+
+    def wait_for_result(self, job, seconds=10):
+        deadline = time.time() + seconds
+        while time.time() < deadline:
+            resp = request("GET", f"/ocr/{job}")
+            if resp.status != 202:
+                return resp
+            data = resp.json()
+            self.assertIs(data["ok"], True)
+            self.assertIn(data["state"], ("queued", "running"))
+            self.assertIsInstance(data["position"], int)
+            self.assertGreaterEqual(data["position"], 0)
+            time.sleep(0.3)
+        self.fail(f"OCR job {job} still not done after {seconds} s")
+
+    def test_without_ocr_it_scans_like_a_flatbed(self):
+        resp = scan({"scanner": "fake:ocr"})
+        self.assertEqual(resp.status, 200, resp.body[:200])
+        f = resp.json()["files"][0]
+        self.assertNotIn("ocrJob", f)
+        self.assertIn(b"Flatbed page 1", base64.b64decode(f["data"]))
+
+    def test_job_lifecycle(self):
+        resp = self.ocr_scan(ocrLanguages=["deu", "eng"])
+        self.assertEqual(resp.status, 200, resp.body[:200])
+        data = resp.json()
+        self.assertIs(data["ok"], True)
+        [f] = data["files"]
+        self.assertRegex(f["ocrJob"], TOKEN_PATTERN)
+        self.assertNotIn(b"Flatbed page 1", base64.b64decode(f["data"]), "the immediate file is the plain scan")
+        first = request("GET", f"/ocr/{f['ocrJob']}")
+        self.assertEqual(first.status, 202, "the result takes about 2 seconds")
+        result = self.wait_for_result(f["ocrJob"])
+        self.assertEqual(result.status, 200, result.body[:200])
+        body = result.json()
+        self.assertIs(body["ok"], True)
+        [out] = body["files"]
+        self.assertEqual((out["name"], out["pages"]), (f["name"], f["pages"]))
+        pdf = base64.b64decode(out["data"], validate=True)
+        self.assertTrue(pdf.startswith(b"%PDF-"))
+        self.assertIn(b"Flatbed page 1", pdf)
+        assert_error(self, request("GET", f"/ocr/{f['ocrJob']}"), 404)
+
+    def test_a_scan_may_start_while_ocr_runs(self):
+        job = self.ocr_scan().json()["files"][0]["ocrJob"]
+        self.assertEqual(scan({"scanner": "fake:flatbed"}).status, 200)
+        self.assertEqual(self.wait_for_result(job).status, 200)
+
+    def test_field_validation(self):
+        assert_error(self, scan({"scanner": "fake:ocr", "ocr": "yes"}), 400)
+        assert_error(self, scan({"scanner": "fake:ocr", "ocr": True, "ocrLanguages": "deu"}), 400)
+        assert_error(self, scan({"scanner": "fake:ocr", "ocr": True, "ocrLanguages": [1]}), 400)
+        assert_error(self, scan({"scanner": "fake:flatbed", "ocr": True}), 422)
+        assert_error(self, scan({"scanner": "fake:ocr", "ocr": True, "ocrLanguages": ["xyz"]}), 422)
+
+    def test_ocr_false_is_accepted_anywhere(self):
+        resp = scan({"scanner": "fake:flatbed", "ocr": False})
+        self.assertEqual(resp.status, 200, resp.body[:200])
+        self.assertNotIn("ocrJob", resp.json()["files"][0])
+
+    def test_unknown_job_and_missing_id(self):
+        assert_error(self, request("GET", "/ocr/no-such-job-0000000000000"), 404)
+        assert_error(self, request("GET", "/ocr/"), 404)
+        assert_error(self, request("GET", "/ocr"), 404)
+
+    def test_token_and_method(self):
+        assert_error(self, request("GET", "/ocr/no-such-job-0000000000000", auth=None), 401)
+        resp = request("POST", "/ocr/no-such-job-0000000000000", raw_body=b"{}", auth=None)
+        assert_error(self, resp, 405)
+        self.assertEqual(resp.headers.get("Allow"), "GET, OPTIONS")
+
+    def test_cors_on_ocr_answers(self):
+        resp = request("GET", "/ocr/no-such-job-0000000000000", headers={"Origin": "null"})
+        assert_cors(self, resp, "null")
 
 
 if __name__ == "__main__":

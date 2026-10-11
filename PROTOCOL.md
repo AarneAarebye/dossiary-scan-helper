@@ -35,20 +35,22 @@ All response bodies are JSON (`Content-Type: application/json; charset=utf-8`).
 | `/pair` | `POST` | not needed |
 | `/scanners` | `GET` | required |
 | `/scan` | `POST` | required |
+| `/ocr/<job>` | `GET` | required |
 
 `OPTIONS` on any path, known or not, is a CORS preflight (see Origins).
 Any other method on a known endpoint (including `HEAD`, `PUT`, `DELETE`,
 `PATCH`) → **405** with an `Allow` header listing the endpoint's method and
-`OPTIONS`: `Allow: GET, OPTIONS` for `/health` and `/scanners`,
+`OPTIONS`: `Allow: GET, OPTIONS` for `/health`, `/scanners` and `/ocr/<job>`,
 `Allow: POST, OPTIONS` for `/scan` and `/pair`. Any method other than
-`OPTIONS` on an unknown path → **404**.
+`OPTIONS` on an unknown path → **404**. `/ocr` and `/ocr/` without a job id are
+unknown paths (404).
 
 A helper checks every request in this order and answers with the first
 failure:
 
 1. The `Origin` isn't allowed → **403** (see Origins).
 2. Unknown path → **404**; known path, wrong method → **405**.
-3. `/scanners` and `/scan` only: no valid token → **401** (see Pairing).
+3. `/scanners`, `/scan` and `/ocr/<job>` only: no valid token → **401** (see Pairing).
 4. The endpoint's own checks (for `/scan`, "Request validation" below).
 
 ## `GET /health`
@@ -133,6 +135,7 @@ documents runs with real scanners.
 | `colorModes` | array of `"color"` / `"gray"` / `"bw"` | At least one. The first is the default. |
 | `resolutions` | array of integers (dpi), ascending | At least one. The first is the default. |
 | `extras` | array of strings | Extra abilities, see below. |
+| `ocr` | object, optional | Present only when the helper can make a searchable PDF of this scanner's pages (see Background OCR). `languages`: the OCR languages it offers, as Tesseract-style codes (`deu`, `eng`, `fra`, `spa`, `chi_sim`, `chi_tra`). |
 
 An empty `scanners` array is a valid answer: the helper runs, but found
 no scanner.
@@ -151,12 +154,15 @@ Clients ignore extras they don't know.
 ```json
 { "scanner": "ic:HP-ENVY-6000", "source": "feeder", "duplex": true,
   "colorMode": "color", "resolution": 300, "format": "pdf",
-  "extras": { "splitOnBlank": false } }
+  "extras": { "splitOnBlank": false },
+  "ocr": true, "ocrLanguages": ["deu", "eng"] }
 ```
 
 Only `scanner` is required. Missing fields use the scanner's defaults:
 the first `source`, `colorMode` and `resolution`, `duplex` false,
 `format` `"pdf"`, every extra off.
+`ocr` (default false) asks for a searchable PDF in the background;
+`ocrLanguages` (default: the helper's choice) picks its languages.
 
 The request blocks until the scan has finished. Clients must not set a
 timeout: a large feeder batch can take minutes.
@@ -173,13 +179,16 @@ this order and answers with the first failure:
 3. `scanner` is not a known id → **404**.
 4. A field has the wrong JSON type (`source`, `colorMode`, `format` not
    strings; `resolution` not an integer; `duplex` not a boolean; `extras`
-   not an object whose values are all booleans) → **400**.
+   not an object whose values are all booleans; `ocr` not a boolean;
+   `ocrLanguages` not an array of strings) → **400**.
 5. A value the scanner doesn't offer → **422**: `source` not in
    `sources`; `colorMode` not in `colorModes`; `resolution` not in
    `resolutions`; `format` other than `"pdf"`; `duplex: true` when the
    scanner has `duplex: false` or the source isn't `"feeder"`; an extra
    set to `true` that isn't in the scanner's `extras`. (An unknown extra
-   set to `false` is accepted.)
+   set to `false` is accepted.) `ocr: true` for a scanner without `ocr`;
+   an `ocrLanguages` entry not in the scanner's `ocr.languages` (checked
+   only with `ocr: true`).
 6. Another scan is running on this helper → **409**.
 7. The scanner can't be reached, or the system denied access → **503**.
 
@@ -203,18 +212,46 @@ device) → **500**.
 - `partial: true` (with `ok: false`) means something went wrong but
   usable pages came back, for example a paper jam after the second
   sheet. `files` then holds those pages and `message` says what happened.
+- `ocrJob`: present on every file when the request had `ocr: true`. The
+  file is then the plain scan, and `GET /ocr/<job>` delivers its
+  searchable version (see Background OCR).
 
 A scan result, including `partial: true`, is answered with **200**; only
 the codes under Errors are non-200.
+
+## Background OCR
+
+A scan with `ocr: true` answers as soon as the plain PDFs exist; the helper
+then makes each file searchable in the background, one job at a time. The
+client fetches the result:
+
+### `GET /ocr/<job>`
+
+Needs the token, like `/scan`.
+
+| Answer | Meaning |
+|---|---|
+| **202** `{"ok": true, "state": "queued", "position": 2}` | Not done yet. `state` is `queued` or `running`; `position` counts the jobs ahead of it (0 while it runs). |
+| **200** `{"ok": true, "files": [{"name": "…", "pages": 3, "data": "<base64>"}]}` | The searchable PDF, with the same `name` and `pages` as the plain file. |
+| **404** | Unknown job, already fetched, or expired. |
+| **500** | OCR failed; the message says why. |
+
+- Fetching a **200** deletes the result: a second fetch answers 404.
+- A helper keeps a finished result until it's fetched, at most 7 days,
+  and keeps it across its own restarts (on disk).
+- A new scan may start while OCR jobs run; only a second simultaneous scan
+  gets 409.
+- Clients poll every few seconds, without a timeout of their own beyond
+  the 7 days.
 
 ## Errors
 
 | Code | Meaning |
 |---|---|
 | 400 | malformed request |
-| 401 | no valid pairing token (`/scanners`, `/scan`) |
+| 401 | no valid pairing token (`/scanners`, `/scan`, `/ocr/<job>`) |
 | 403 | origin not allowed, or pairing code refused (`/pair`) |
-| 404 | unknown scanner, or unknown endpoint |
+| 404 | unknown scanner, unknown endpoint, or unknown or fetched OCR job |
 | 405 | wrong method for the endpoint |
 | 409 | a scan is already running |
 | 422 | a setting the scanner doesn't offer |
@@ -267,7 +304,7 @@ defence, and helpers listen on `127.0.0.1` only.
 
 Every helper has a fake scanner mode (`--fake-scanners` for the native
 helpers; the reference helper has nothing else). It exists for testing
-only. It replaces the real scanners with exactly these seven, so one
+only. It replaces the real scanners with exactly these seven, plus `fake:ocr` when the helper does background OCR, so one
 conformance suite can test every helper without hardware, and fixes the
 pairing code at `000000` (see Pairing). Pages carry the text shown; `""`
 is a blank page.
@@ -281,6 +318,10 @@ is a blank page.
 | `fake:slow` | Fake Slow Scanner | flatbed | false | color, gray, bw | 150, 300, 600 | — |
 | `fake:offline` | Fake Offline Scanner | flatbed | false | color, gray, bw | 150, 300, 600 | — |
 | `fake:empty` | Fake Empty Feeder | feeder | false | color, gray, bw | 150, 300, 600 | — |
+| `fake:ocr` | Fake OCR Scanner | flatbed | false | color, gray, bw | 150, 300, 600 | — |
+
+`fake:ocr` also offers `ocr: {"languages": ["deu", "eng"]}`. It's optional for
+now: a helper may list only the first seven.
 
 What a scan returns:
 
@@ -301,6 +342,10 @@ What a scan returns:
 - **`fake:offline`**: every valid scan request answers **503**.
 - **`fake:empty`**: every valid scan request answers **500** with the
   message `No paper in the feeder.`
+- **`fake:ocr`**: without `ocr: true`, like any flatbed. With `ocr: true`:
+  one page *without* the text `Flatbed page 1`, and an `ocrJob` that answers
+  202 for 2 seconds after the scan, then 200 with one page whose content has
+  `Flatbed page 1`.
 
 In fake scanner mode, messages are always English and exact, even in a
 helper that localizes the messages for real scanners:
