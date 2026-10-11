@@ -11,7 +11,7 @@ def by_id(scanner_id):
 
 class DescribeTests(unittest.TestCase):
     def test_seven_scanners_in_protocol_order(self):
-        self.assertEqual([s.id for s in FAKE_SCANNERS],
+        self.assertEqual([s.id for s in FAKE_SCANNERS][:7],
                          ["fake:flatbed", "fake:feeder", "fake:splitter", "fake:jam", "fake:slow", "fake:offline",
                           "fake:empty"])
 
@@ -139,3 +139,30 @@ class SimulateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OcrFakeTests(unittest.TestCase):
+    def test_eight_scanners_with_fake_ocr_last(self):
+        self.assertEqual([s.id for s in FAKE_SCANNERS][-1], "fake:ocr")
+        self.assertEqual(by_id("fake:ocr").describe(), {
+            "id": "fake:ocr", "name": "Fake OCR Scanner", "sources": ["flatbed"], "duplex": False,
+            "colorModes": ["color", "gray", "bw"], "resolutions": [150, 300, 600], "extras": [],
+            "ocr": {"languages": ["deu", "eng"]},
+        })
+        self.assertNotIn("ocr", by_id("fake:flatbed").describe())
+
+    def assertStatus(self, body, status):
+        with self.assertRaises(ScanError) as ctx:
+            validate(body)
+        self.assertEqual(ctx.exception.status, status)
+
+    def test_ocr_fields(self):
+        self.assertStatus({"scanner": "fake:ocr", "ocr": "yes"}, 400)
+        self.assertStatus({"scanner": "fake:ocr", "ocrLanguages": "deu"}, 400)
+        self.assertStatus({"scanner": "fake:ocr", "ocrLanguages": [1]}, 400)
+        self.assertStatus({"scanner": "fake:flatbed", "ocr": True}, 422)
+        self.assertStatus({"scanner": "fake:ocr", "ocr": True, "ocrLanguages": ["xyz"]}, 422)
+        _, settings = validate({"scanner": "fake:ocr", "ocr": True})
+        self.assertEqual((settings["ocr"], settings["ocrLanguages"]), (True, []))
+        _, settings = validate({"scanner": "fake:flatbed", "ocr": False, "ocrLanguages": ["xyz"]})
+        self.assertIs(settings["ocr"], False)

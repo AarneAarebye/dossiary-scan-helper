@@ -10,19 +10,22 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .fakes import FAKE_SCANNERS, ScanError, simulate, validate
+from .ocr_jobs import OcrJobs
 from .pairing import bearer_token, pair, token_valid, validate_pair_body
 from .pdf import make_pdf
 
 HELPER_NAME = "dossiary-scan-helper-reference"
 _scan_lock = threading.Lock()
+OCR_JOBS = OcrJobs()
 
 
 _ALLOWED_ORIGIN = re.compile(r"http://(localhost|127\.0\.0\.1)(:[0-9]{1,5})?")
 MAX_BODY = 1_000_000
 
 # Each endpoint and the one method it takes (besides OPTIONS).
-ENDPOINTS = {"/health": "GET", "/scanners": "GET", "/scan": "POST", "/pair": "POST"}
-NEEDS_TOKEN = ("/scanners", "/scan")
+ENDPOINTS = {"/health": "GET", "/scanners": "GET", "/scan": "POST", "/pair": "POST",
+             "/ocr/<job>": "GET"}
+NEEDS_TOKEN = ("/scanners", "/scan", "/ocr/<job>")
 
 
 def origin_allowed(origin):
@@ -110,6 +113,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self._origin_ok():
             return
         path = urlsplit(self.path).path
+        job_id = None
+        if path.startswith("/ocr/") and len(path) > len("/ocr/") and "/" not in path[len("/ocr/"):]:
+            job_id, path = path[len("/ocr/"):], "/ocr/<job>"
         method = ENDPOINTS.get(path)
         if method is None:
             self._send_json(404, _error_body("Unknown endpoint."))
@@ -128,6 +134,9 @@ class Handler(BaseHTTPRequestHandler):
                                       "protocol": 2, "paired": self._paired()})
             elif path == "/scanners":
                 self._send_json(200, {"scanners": [s.describe() for s in FAKE_SCANNERS]})
+            elif path == "/ocr/<job>":
+                status, body = OCR_JOBS.fetch(job_id)
+                self._send_json(status, body)
             elif path == "/pair":
                 token = pair(validate_pair_body(self._read_json_body()))
                 self._send_json(200, {"ok": True, "token": token})
@@ -148,8 +157,11 @@ class Handler(BaseHTTPRequestHandler):
         files = []
         for index, pages in enumerate(documents, start=1):
             name = f"scan_{stamp}.pdf" if len(documents) == 1 else f"scan_{stamp}_{index}.pdf"
-            files.append({"name": name, "pages": len(pages),
-                          "data": base64.b64encode(make_pdf(pages)).decode("ascii")})
+            plain = make_pdf([""] * len(pages)) if settings["ocr"] else make_pdf(pages)
+            entry = {"name": name, "pages": len(pages), "data": base64.b64encode(plain).decode("ascii")}
+            if settings["ocr"]:
+                entry["ocrJob"] = OCR_JOBS.submit(make_pdf(pages), name, len(pages))
+            files.append(entry)
         self._send_json(200, {"ok": not partial, "partial": partial, "message": message, "files": files})
 
     do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = _dispatch

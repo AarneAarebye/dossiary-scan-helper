@@ -30,13 +30,17 @@ class FakeScanner:
     offline: bool = False
     jam_after: int | None = None
     empty: bool = False
+    ocr_languages: tuple = ()
 
     def describe(self) -> dict:
-        return {
+        entry = {
             "id": self.id, "name": self.name, "sources": list(self.sources), "duplex": self.duplex,
             "colorModes": list(self.color_modes), "resolutions": list(self.resolutions),
             "extras": list(self.extras),
         }
+        if self.ocr_languages:
+            entry["ocr"] = {"languages": list(self.ocr_languages)}
+        return entry
 
 
 def _scanner(id, name, sources, duplex=False, extras=(), sheets=(), **kw):
@@ -55,6 +59,7 @@ FAKE_SCANNERS = (
     _scanner("fake:slow", "Fake Slow Scanner", ("flatbed",), delay=2.0),
     _scanner("fake:offline", "Fake Offline Scanner", ("flatbed",), offline=True),
     _scanner("fake:empty", "Fake Empty Feeder", ("feeder",), empty=True),
+    _scanner("fake:ocr", "Fake OCR Scanner", ("flatbed",), ocr_languages=("deu", "eng")),
 )
 
 EMPTY_FEEDER_MESSAGE = "No paper in the feeder."
@@ -82,6 +87,11 @@ def validate(body):
     extras = body.get("extras", {})
     if not isinstance(extras, dict) or not all(isinstance(v, bool) for v in extras.values()):
         raise ScanError(400, "“extras” must map names to true or false.")
+    if "ocr" in body and not isinstance(body["ocr"], bool):
+        raise ScanError(400, "“ocr” must be true or false.")
+    languages = body.get("ocrLanguages", [])
+    if not isinstance(languages, list) or not all(isinstance(lang, str) for lang in languages):
+        raise ScanError(400, "“ocrLanguages” must be a list of language codes.")
 
     source = body.get("source", scanner.sources[0])
     if source not in scanner.sources:
@@ -101,9 +111,17 @@ def validate(body):
     for name, on in extras.items():
         if on and name not in scanner.extras:
             raise ScanError(422, f"{scanner.name} doesn't offer “{name}”.")
+    ocr = body.get("ocr", False)
+    if ocr and not scanner.ocr_languages:
+        raise ScanError(422, f"{scanner.name} can't make a searchable PDF.")
+    if ocr:
+        for lang in languages:
+            if lang not in scanner.ocr_languages:
+                raise ScanError(422, f"{scanner.name} has no OCR language “{lang}”.")
 
     return scanner, {"source": source, "duplex": duplex, "colorMode": color_mode,
-                     "resolution": resolution, "format": fmt, "extras": dict(extras)}
+                     "resolution": resolution, "format": fmt, "extras": dict(extras),
+                     "ocr": ocr, "ocrLanguages": list(languages)}
 
 
 def _pages_message(count: int) -> str:
