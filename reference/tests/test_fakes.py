@@ -42,7 +42,8 @@ class ValidateTests(unittest.TestCase):
         scanner, settings = validate({"scanner": "fake:feeder"})
         self.assertEqual(scanner.id, "fake:feeder")
         self.assertEqual(settings, {"source": "feeder", "duplex": False, "colorMode": "color",
-                                    "resolution": 150, "format": "pdf", "extras": {}})
+                                    "resolution": 150, "format": "pdf", "extras": {},
+                                "ocr": False, "ocrLanguages": []})
 
     def test_400s(self):
         self.assertStatus([1, 2], 400)
