@@ -98,3 +98,20 @@ private func settings(_ source: Source, duplex: Bool = false, extras: [String: B
     #expect(result.partialMessage == nil)
     #expect(await FakeBackend().listScanners() == FakeScanners.infos)
 }
+
+@Test func fakeOcrScanner() async throws {
+    let info = try #require(FakeScanners.infos.first { $0.id == "fake:ocr" })
+    #expect(info.name == "Fake OCR Scanner" && info.sources == [.flatbed] && !info.duplex)
+    #expect(info.ocrLanguages == ["deu", "eng"] && info.extras.isEmpty)
+    let backend = FakeBackend()
+    let plainSettings = ScanSettings(source: .flatbed, duplex: false, colorMode: .color, resolution: 150, extras: [:])
+    let plain = try await backend.scan(scannerID: "fake:ocr", settings: plainSettings)
+    #expect(plain.pdfs?.first?.range(of: Data("Flatbed page 1".utf8)) != nil)
+    #expect(plain.fakeTexts == nil)
+    var ocrSettings = plainSettings; ocrSettings.ocr = true
+    let withOcr = try await backend.scan(scannerID: "fake:ocr", settings: ocrSettings)
+    #expect(withOcr.pdfs?.first?.range(of: Data("Flatbed page 1".utf8)) == nil)
+    #expect(withOcr.fakeTexts == [["Flatbed page 1"]])
+    // The other fakes still build their PDFs the usual way.
+    #expect(try await backend.scan(scannerID: "fake:flatbed", settings: plainSettings).pdfs == nil)
+}

@@ -13,7 +13,7 @@ public struct CommandLineOptions: Equatable {
 
     public static let usage = """
         Usage: dossiary-scan-helper [--fake-scanners] [--headless] [--port N]
-          --fake-scanners  the protocol's seven fake scanners instead of real ones (testing only;
+          --fake-scanners  the protocol's eight fake scanners instead of real ones (testing only;
                            pairing code 000000)
           --headless       no menu bar icon; log to the terminal too (CI and development)
           --port N         listen on 127.0.0.1:N instead of 8766

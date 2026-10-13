@@ -15,9 +15,10 @@ public enum FakeScanners {
 
     private static func make(_ id: String, _ name: String, _ sources: [Source], duplex: Bool = false,
                              extras: [String] = [], sheets: [String] = [], delay: TimeInterval = 0,
-                             offline: Bool = false, jamAfter: Int? = nil, empty: Bool = false) -> FakeScanner {
+                             offline: Bool = false, jamAfter: Int? = nil, empty: Bool = false, ocr: [String] = []) -> FakeScanner {
         FakeScanner(info: ScannerInfo(id: id, name: name, sources: sources, duplex: duplex,
-                                      colorModes: [.color, .gray, .bw], resolutions: [150, 300, 600], extras: extras),
+                                      colorModes: [.color, .gray, .bw], resolutions: [150, 300, 600], extras: extras,
+                                      ocrLanguages: ocr),
                     sheets: sheets, delay: delay, offline: offline, jamAfter: jamAfter, empty: empty)
     }
 
@@ -30,6 +31,7 @@ public enum FakeScanners {
         make("fake:slow", "Fake Slow Scanner", [.flatbed], delay: 2),
         make("fake:offline", "Fake Offline Scanner", [.flatbed], offline: true),
         make("fake:empty", "Fake Empty Feeder", [.feeder], empty: true),
+        make("fake:ocr", "Fake OCR Scanner", [.flatbed], ocr: ["deu", "eng"]),
     ]
 
     public static var infos: [ScannerInfo] { all.map(\.info) }

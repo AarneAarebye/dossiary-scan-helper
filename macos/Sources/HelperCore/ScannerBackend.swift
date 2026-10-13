@@ -11,8 +11,12 @@ public struct PageImage: Sendable {
 public struct ScanDocuments: Sendable {
     public var documents: [[PageImage]]
     public var partialMessage: String?
-    public init(documents: [[PageImage]], partialMessage: String?) {
-        self.documents = documents; self.partialMessage = partialMessage
+    /// Already-built PDFs, one per document (fake:ocr only, so its text stays byte-searchable).
+    public var pdfs: [Data]?
+    /// fake:ocr with `ocr: true` only: each document's page texts, for FakeOcrEngine.
+    public var fakeTexts: [[String]]?
+    public init(documents: [[PageImage]], partialMessage: String?, pdfs: [Data]? = nil, fakeTexts: [[String]]? = nil) {
+        self.documents = documents; self.partialMessage = partialMessage; self.pdfs = pdfs; self.fakeTexts = fakeTexts
     }
 }
 

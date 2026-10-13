@@ -19,7 +19,19 @@ public final class FakeBackend: ScannerBackend, @unchecked Sendable {
         if fake.empty { throw ProtocolError(500, FakeScanners.emptyFeederMessage) }
         let plan = FakeBackend.plan(fake, settings)
         let documents = try plan.documents.map { try $0.map(FakePages.render) }
-        return ScanDocuments(documents: documents, partialMessage: plan.partialMessage)
+        guard !fake.info.ocrLanguages.isEmpty else {
+            return ScanDocuments(documents: documents, partialMessage: plan.partialMessage)
+        }
+        // fake:ocr writes its own PDFs so the conformance suite can search their bytes: with ocr the plain file
+        // has no text (the job adds it), without ocr it carries the page text like any searchable flatbed scan.
+        let pdfs = zip(plan.documents, documents).map { texts, pages in
+            RawPdf.write(zip(texts, pages).map { text, page in
+                RawPdf.Page(jpeg: page.data, widthPx: FakePages.width, heightPx: FakePages.height, dpi: page.dpi,
+                            text: settings.ocr ? nil : text)
+            })
+        }
+        return ScanDocuments(documents: documents, partialMessage: plan.partialMessage, pdfs: pdfs,
+                             fakeTexts: settings.ocr ? plan.documents : nil)
     }
 
     /// Which page texts a fake scan returns, grouped into documents, and the jam message if any.

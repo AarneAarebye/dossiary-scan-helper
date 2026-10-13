@@ -49,9 +49,9 @@ private func ocrStatus(_ body: [String: Any]) -> Int? {
     #expect(!plain.ocr && plain.ocrLanguages.isEmpty)
 }
 
-@Test func fakeTableHasTheSevenScannersInOrder() {
+@Test func fakeTableHasTheEightScannersInOrder() {
     #expect(FakeScanners.infos.map(\.id) == ["fake:flatbed", "fake:feeder", "fake:splitter", "fake:jam",
-                                             "fake:slow", "fake:offline", "fake:empty"])
+                                             "fake:slow", "fake:offline", "fake:empty", "fake:ocr"])
     let feeder = FakeScanners.infos[1]
     #expect(feeder.name == "Fake Feeder")
     #expect(feeder.sources == [.feeder, .flatbed])
