@@ -52,7 +52,7 @@ public enum PdfBuilder {
             let natural = CTLineGetTypographicBounds(ctLine, nil, nil, nil)
             let scale = natural > 0 ? rect.width / natural : 1
             context.textMatrix = CGAffineTransform(scaleX: scale, y: 1)
-            context.textPosition = CGPoint(x: rect.minX / scale, y: rect.minY + rect.height * 0.2)
+            context.textPosition = CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.2)
             CTLineDraw(ctLine, context)
         }
         context.restoreGState()

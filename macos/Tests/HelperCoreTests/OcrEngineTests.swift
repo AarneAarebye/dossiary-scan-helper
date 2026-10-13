@@ -57,7 +57,15 @@ private func pixels(_ pdf: Data) -> [UInt8] {
     // The text sits where it is on the page (upper part, left side).
     let found = try #require(document.findString("Gesamtbetrag", withOptions: []).first)
     let bounds = found.bounds(for: document.page(at: 0)!)
-    #expect(bounds.minY > 600 && bounds.minX < 100)
+    #expect(bounds.minY > 600)
+    // Drawn at x = 100 px at 150 dpi = 48 pt; the line's right edge follows from its real width.
+    #expect(abs(bounds.minX - 48) <= 2)
+    let font = CTFontCreateWithName("Helvetica" as CFString, 40, nil)
+    let line = CTLineCreateWithAttributedString(NSAttributedString(
+        string: "Gesamtbetrag 123,45 EUR", attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]))
+    let rightEdge = 48 + CTLineGetTypographicBounds(line, nil, nil, nil) * 72 / 150
+    let eur = try #require(document.findString("EUR", withOptions: []).first)
+    #expect(abs(eur.bounds(for: document.page(at: 0)!).maxX - rightEdge) <= 20)
 }
 
 @Test func unreadablePageFailsTheJob() async {
