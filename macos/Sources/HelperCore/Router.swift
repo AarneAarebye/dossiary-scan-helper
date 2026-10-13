@@ -8,18 +8,32 @@ actor ScanGate {
 
 /// Turns a request into a response, following PROTOCOL.md. Knows nothing about sockets.
 public final class Router: @unchecked Sendable {
-    static let endpoints = ["/health": "GET", "/scanners": "GET", "/scan": "POST", "/pair": "POST"]
-    static let needsToken: Set<String> = ["/scanners", "/scan"]
+    static let endpoints = ["/health": "GET", "/scanners": "GET", "/scan": "POST", "/pair": "POST",
+                              "/ocr/*": "GET"]
+    static let needsToken: Set<String> = ["/scanners", "/scan", "/ocr/*"]
+
+    /// "/ocr/<job>" is one endpoint, "/ocr/*"; "/ocr", "/ocr/" and deeper paths are unknown.
+    static func endpointKey(_ path: String) -> String? {
+        if endpoints[path] != nil { return path }
+        if path.hasPrefix("/ocr/") {
+            let id = path.dropFirst("/ocr/".count)
+            if !id.isEmpty && !id.contains("/") { return "/ocr/*" }
+        }
+        return nil
+    }
 
     private let backend: ScannerBackend
     private let pairing: PairingStore
+    private let ocrJobs: OcrJobQueue?
+    private let ocrLanguages: [String]
     private let now: @Sendable () -> Date
     private let log: @Sendable (String) -> Void
     private let gate = ScanGate()
 
-    public init(backend: ScannerBackend, pairing: PairingStore, now: @escaping @Sendable () -> Date = { Date() },
+    public init(backend: ScannerBackend, pairing: PairingStore, ocrJobs: OcrJobQueue? = nil,
+                ocrLanguages: [String] = [], now: @escaping @Sendable () -> Date = { Date() },
                 log: @escaping @Sendable (String) -> Void = { _ in }) {
-        self.backend = backend; self.pairing = pairing; self.now = now; self.log = log
+        self.backend = backend; self.pairing = pairing; self.ocrJobs = ocrJobs; self.ocrLanguages = ocrLanguages; self.now = now; self.log = log
     }
 
     public static func errorBody(_ message: String) -> [String: Any] { ["ok": false, "partial": false, "message": message] }
@@ -49,7 +63,7 @@ public final class Router: @unchecked Sendable {
             return .json(403, Router.errorBody("This origin may not use the scan helper."), origin: nil)
         }
         if request.method == "OPTIONS" { return preflight(request, origin: origin) }
-        guard let method = Router.endpoints[request.path] else {
+        guard let key = Router.endpointKey(request.path), let method = Router.endpoints[key] else {
             return .json(404, Router.errorBody("Unknown endpoint."), origin: origin)
         }
         guard request.method == method else {
@@ -57,23 +71,25 @@ public final class Router: @unchecked Sendable {
                          extraHeaders: [("Allow", "\(method), OPTIONS")])
         }
         let paired = pairing.isValid(token: Router.bearerToken(request.header("authorization")))
-        if Router.needsToken.contains(request.path) && !paired {
+        if Router.needsToken.contains(key) && !paired {
             return .json(401, Router.errorBody(
                 "This browser isn't paired with the scan helper. Pair it in Dossiary's scan dialog."), origin: origin)
         }
         do {
-            switch request.path {
+            switch key {
             case "/health":
                 return .json(200, ["ok": true, "helper": HelperVersion.helperName, "version": HelperVersion.string,
                                    "protocol": 2, "paired": paired], origin: origin)
             case "/scanners":
-                let scanners = await backend.listScanners()
+                let scanners = await scanners()
                 return .json(200, ["scanners": scanners.map(\.json)], origin: origin)
             case "/pair":
                 let (code, client) = try PairingStore.validatePairBody(try request.jsonBody())
                 let token = try pairing.pair(code: code, client: client)
                 log("Paired a browser\(client.map { " (\($0))" } ?? "").")
                 return .json(200, ["ok": true, "token": token], origin: origin)
+            case "/ocr/*":
+                return await ocr(String(request.path.dropFirst("/ocr/".count)), origin: origin)
             default:
                 return try await scan(request, origin: origin)
             }
@@ -89,22 +105,63 @@ public final class Router: @unchecked Sendable {
 
     private func scan(_ request: HTTPRequest, origin: String?) async throws -> HTTPResponse {
         let body = try request.jsonBody()
-        let (scanner, settings) = try ScanRequestValidator.validate(body, scanners: await backend.listScanners())
+        let (scanner, settings) = try ScanRequestValidator.validate(body, scanners: await scanners())
         guard await gate.tryBegin() else {
             throw ProtocolError(409, "Another scan is still running. Try again when it has finished.")
         }
         let result: ScanDocuments
         do {
-            log("Scanning with \(scanner.name): \(settings.source.rawValue), \(settings.colorMode.rawValue), \(settings.resolution) dpi\(settings.duplex ? ", both sides" : "").")
+            log("Scanning with \(scanner.name): \(settings.source.rawValue), \(settings.colorMode.rawValue), \(settings.resolution) dpi\(settings.duplex ? ", both sides" : "")\(settings.ocr ? ", searchable" : "").")
             result = try await backend.scan(scannerID: scanner.id, settings: settings)
         } catch {
             await gate.end()
             throw error
         }
         await gate.end()
-        let payload = try ScanResponse.payload(result, date: now())
+        let files = try ScanResponse.files(result, date: now())
+        var jobs: [String?] = []
+        if settings.ocr, let ocrJobs {
+            for file in files {
+                do {
+                    jobs.append(try await ocrJobs.submit(pages: file.pages, name: file.name,
+                                                         languages: settings.ocrLanguages, fakeTexts: file.fakeTexts))
+                } catch {
+                    // The scan succeeded; the file goes out without a job and the client makes it searchable itself.
+                    log("Couldn't queue text recognition for \(file.name): \(error.localizedDescription)")
+                    jobs.append(nil)
+                }
+            }
+        }
+        let payload = ScanResponse.payload(result, files: files, ocrJobs: jobs)
         log(payload["message"] as? String ?? "Scan finished.")
         return .json(200, payload, origin: origin)
+    }
+
+    /// The backend's scanners as offered: without a job queue nothing offers `ocr` (fake:ocr included);
+    /// with one, scanners without their own list get the engine's languages.
+    private func scanners() async -> [ScannerInfo] {
+        await backend.listScanners().map { scanner in
+            var scanner = scanner
+            if ocrJobs == nil { scanner.ocrLanguages = [] }
+            else if scanner.ocrLanguages.isEmpty { scanner.ocrLanguages = ocrLanguages }
+            return scanner
+        }
+    }
+
+    private func ocr(_ id: String, origin: String?) async -> HTTPResponse {
+        let unknown = Router.errorBody("This text recognition job is unknown, already fetched, or expired.")
+        guard let ocrJobs else { return .json(404, unknown, origin: origin) }
+        switch await ocrJobs.fetch(id) {
+        case .pending(let state, let position):
+            return .json(202, ["ok": true, "state": state, "position": position], origin: origin)
+        case .done(let name, let pages, let pdf):
+            return .json(200, ["ok": true, "files": [["name": name, "pages": pages, "data": pdf.base64EncodedString()]]],
+                         origin: origin)
+        case .failed(let message):
+            return .json(500, Router.errorBody(message), origin: origin)
+        case .unknown:
+            return .json(404, unknown, origin: origin)
+        }
     }
 
     private func preflight(_ request: HTTPRequest, origin: String?) -> HTTPResponse {

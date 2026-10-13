@@ -143,3 +143,66 @@ private func object(_ response: HTTPResponse) -> [String: Any] {
         #expect(object(r)["ok"] as? Bool == false)
     }
 }
+
+private func makeOcrRouter() async -> (Router, String) {
+    let pairing = PairingStore(mode: .fake)
+    let token = try! pairing.pair(code: "000000", client: nil)
+    let queue = OcrJobQueue(root: FileManager.default.temporaryDirectory
+        .appendingPathComponent("router-ocr-\(UUID().uuidString)"), engine: FakeOcrEngine(delay: 0.3))
+    await queue.start()
+    return (Router(backend: FakeBackend(), pairing: pairing, ocrJobs: queue), token)
+}
+
+@Test func ocrJobLifecycle() async throws {
+    let (router, token) = await makeOcrRouter()
+    let scan = object(await router.handle(req("POST", "/scan", token: token,
+                                              body: #"{"scanner":"fake:ocr","ocr":true,"ocrLanguages":["deu"]}"#)))
+    let file = try #require((scan["files"] as? [[String: Any]])?.first)
+    let job = try #require(file["ocrJob"] as? String)
+    #expect(OcrJobQueue.isValidID(job))
+    let pending = await router.handle(req("GET", "/ocr/\(job)", origin: "null", token: token))
+    #expect(pending.status == 202)
+    #expect(pending.header("Access-Control-Allow-Origin") == "null")
+    #expect(object(pending)["state"] as? String != nil && object(pending)["position"] as? Int == 0)
+    try await Task.sleep(nanoseconds: 600_000_000)
+    let done = await router.handle(req("GET", "/ocr/\(job)", token: token))
+    #expect(done.status == 200)
+    let out = try #require((object(done)["files"] as? [[String: Any]])?.first)
+    #expect(out["name"] as? String == file["name"] as? String)
+    #expect(out["pages"] as? Int == 1)
+    #expect((await router.handle(req("GET", "/ocr/\(job)", token: token))).status == 404)
+}
+
+@Test func ocrEndpointRules() async {
+    let (router, token) = await makeOcrRouter()
+    #expect((await router.handle(req("GET", "/ocr/no-such-job-0000000000000"))).status == 401)
+    #expect((await router.handle(req("GET", "/ocr/no-such-job-0000000000000", token: token))).status == 404)
+    #expect((await router.handle(req("GET", "/ocr/", token: token))).status == 404)
+    #expect((await router.handle(req("GET", "/ocr", token: token))).status == 404)
+    #expect((await router.handle(req("GET", "/ocr/a/b", token: token))).status == 404)
+    let post = await router.handle(req("POST", "/ocr/no-such-job-0000000000000", token: token, body: "{}"))
+    #expect(post.status == 405)
+    #expect(post.header("Allow") == "GET, OPTIONS")
+}
+
+@Test func scanWithoutOcrHasNoJobs() async throws {
+    let (router, token) = await makeOcrRouter()
+    let scan = object(await router.handle(req("POST", "/scan", token: token, body: #"{"scanner":"fake:ocr"}"#)))
+    let file = try #require((scan["files"] as? [[String: Any]])?.first)
+    #expect(file["ocrJob"] == nil)
+}
+
+@Test func realScannersGetTheEngineLanguages() async {
+    let pairing = PairingStore(mode: .fake)
+    let token = try! pairing.pair(code: "000000", client: nil)
+    let queue = OcrJobQueue(root: FileManager.default.temporaryDirectory
+        .appendingPathComponent("router-ocr-\(UUID().uuidString)"), engine: FakeOcrEngine())
+    let router = Router(backend: FakeBackend(), pairing: pairing, ocrJobs: queue, ocrLanguages: ["eng"])
+    let list = object(await router.handle(req("GET", "/scanners", token: token)))["scanners"] as? [[String: Any]] ?? []
+    let flatbed = list.first { $0["id"] as? String == "fake:flatbed" }
+    let ocr = list.first { $0["id"] as? String == "fake:ocr" }
+    let flatbedLanguages = ((flatbed?["ocr"] as? [String: Any])?["languages"] as? [String]) ?? []
+    let ocrLanguages = ((ocr?["ocr"] as? [String: Any])?["languages"] as? [String]) ?? []
+    #expect(flatbedLanguages == ["eng"])
+    #expect(ocrLanguages == ["deu", "eng"])  // its own list wins
+}

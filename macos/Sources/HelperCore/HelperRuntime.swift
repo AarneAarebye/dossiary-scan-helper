@@ -5,6 +5,7 @@ public final class HelperRuntime: @unchecked Sendable {
     public let options: CommandLineOptions
     public let backend: ScannerBackend
     public let pairing: PairingStore
+    public let ocrJobs: OcrJobQueue
     public let router: Router
     public let server: HTTPServer
     private let log: Log
@@ -12,6 +13,7 @@ public final class HelperRuntime: @unchecked Sendable {
     public init(options: CommandLineOptions, log: Log = .shared) throws {
         self.options = options
         self.log = log
+        let write: @Sendable (String) -> Void = { [log] in log.write($0) }
         if options.fakeScanners {
             backend = FakeBackend()
             pairing = PairingStore(mode: .fake)
@@ -19,13 +21,24 @@ public final class HelperRuntime: @unchecked Sendable {
             backend = ImageCaptureBackend(log: { [log] in log.write($0) })
             pairing = PairingStore(mode: .real(fileURL: PairingStore.defaultFileURL), log: { [log] in log.write($0) })
         }
-        let write: @Sendable (String) -> Void = { [log] in log.write($0) }
-        router = Router(backend: backend, pairing: pairing, log: write)
+        let ocrLanguages: [String]
+        if options.fakeScanners {
+            // Fake mode keeps its jobs in a fresh temporary folder: nothing from a test run lingers.
+            ocrJobs = OcrJobQueue(root: FileManager.default.temporaryDirectory
+                .appendingPathComponent("dossiary-scan-helper-fake-ocr-\(UUID().uuidString)"),
+                                  engine: FakeOcrEngine(), log: write)
+            ocrLanguages = []
+        } else {
+            ocrJobs = OcrJobQueue(root: OcrJobQueue.defaultRoot, engine: VisionOcrEngine(), log: write)
+            ocrLanguages = VisionOcrEngine.offeredCodes()
+        }
+        router = Router(backend: backend, pairing: pairing, ocrJobs: ocrJobs, ocrLanguages: ocrLanguages, log: write)
         server = HTTPServer(port: options.port, router: router, log: write)
     }
 
     public func start() throws {
         try server.start()
+        Task { [ocrJobs] in await ocrJobs.start() }
         if let real = backend as? ImageCaptureBackend {
             if Thread.isMainThread { MainActor.assumeIsolated { real.start() } }
             else { DispatchQueue.main.async { real.start() } }

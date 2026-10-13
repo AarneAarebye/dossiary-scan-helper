@@ -13,6 +13,8 @@ Use the signed, notarized app from `macos/dist/`, a real scanner, and the curren
 - [ ] Feeder with 3 sheets (if the scanner has one): 3 pages in one PDF.
 - [ ] Feeder, both sides (if offered): 6 pages, fronts and backs in order.
 - [ ] Gray and black & white: the PDF looks right and isn't huge.
+- [ ] With "Make scans searchable automatically" on in Dossiary: the scan arrives at once marked "Making searchable…", and within a minute it's searchable (search for a word on the page); the plain scan is kept as the original.
+- [ ] Quit the helper while a scan is still being made searchable, start it again: it finishes.
 - [ ] Empty feeder: Dossiary says "No paper in the feeder." and nothing is added.
 - [ ] Scanner opened in Image Capture during a scan request: Dossiary shows the "couldn't connect" message.
 - [ ] Start at login: after logging out and in, the icon is back.

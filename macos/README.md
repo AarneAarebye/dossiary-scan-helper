@@ -4,6 +4,8 @@ A menu bar app that lets [Dossiary](https://github.com/AarneAarebye/Dossiary) sc
 macOS supports (USB, network and AirPrint/eSCL scanners that Image Capture sees). It speaks
 [protocol version 2](../PROTOCOL.md) on `127.0.0.1:8766`.
 
+With Dossiary's "Make scans searchable automatically", scans come back at once and the helper makes them searchable in the background with macOS's own text recognition (Vision); results wait in `~/Library/Application Support/dossiary-scan-helper/ocr-jobs/` until Dossiary fetches them, at most 7 days.
+
 To install a release, see [docs/install-macos.md](../docs/install-macos.md).
 
 ## Build and test
@@ -13,7 +15,7 @@ Needs macOS 14 or later and the Command Line Tools (`xcode-select --install`); X
     cd macos
     scripts/test.sh                 # unit tests (swift test, plus the Testing plugin path)
     scripts/run-conformance.sh      # the conformance suite against --fake-scanners
-    swift run dossiary-scan-helper --fake-scanners   # menu bar app with the seven fake scanners
+    swift run dossiary-scan-helper --fake-scanners   # menu bar app with the eight fake scanners
 
 `--headless` runs without the menu bar icon and logs to the terminal too. The log file is
 `~/Library/Logs/dossiary-scan-helper/helper.log`.
