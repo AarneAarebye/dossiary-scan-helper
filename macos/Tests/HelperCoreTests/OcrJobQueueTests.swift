@@ -105,3 +105,71 @@ private let page = PageImage(data: Data([0xFF, 0xD8, 0xFF, 0xD9]), dpi: 300)
 }
 
 private final class Clock: @unchecked Sendable { var now = Date(timeIntervalSince1970: 2_000_000_000) }
+
+/// Turns every job's meta.json into a folder while the job runs, so the final meta write fails.
+private struct MetaBreakingEngine: OcrEngine {
+    let root: URL
+    func makeSearchable(_ input: OcrJobInput) async throws -> Data {
+        for id in (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? [] {
+            let meta = root.appendingPathComponent(id).appendingPathComponent("meta.json")
+            try? FileManager.default.removeItem(at: meta)
+            try? FileManager.default.createDirectory(at: meta, withIntermediateDirectories: false)
+        }
+        return Data("ok".utf8)
+    }
+}
+
+@Test func failedFinalMetaWriteRemovesTheJob() async throws {
+    let root = tempRoot()
+    let queue = OcrJobQueue(root: root, engine: MetaBreakingEngine(root: root))
+    let id = try await queue.submit(pages: [page], name: "a.pdf", languages: [], fakeTexts: nil)
+    await queue.waitUntilIdle()
+    #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent(id).path))
+    #expect(await queue.fetch(id) == .unknown)
+}
+
+@Test func queuedJobNobodyRunsIsUnknown() async throws {
+    let root = tempRoot()
+    let other = OcrJobQueue(root: root, engine: GateEngine())
+    await other.start()
+    let queue = OcrJobQueue(root: root, engine: GateEngine())
+    await queue.start()                      // empty root: the job below isn't in its order
+    let id = try await other.submit(pages: [page], name: "a.pdf", languages: [], fakeTexts: nil)
+    #expect(await queue.fetch(id) == .unknown)
+    #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent(id).path))
+}
+
+@Test func submitBeforeStartKeepsEarlierJobsFirst() async throws {
+    let root = tempRoot()
+    let first = OcrJobQueue(root: root, engine: GateEngine())
+    let a = try await first.submit(pages: [page], name: "a.pdf", languages: [], fakeTexts: nil)
+    let second = OcrJobQueue(root: root, engine: GateEngine())   // never started explicitly
+    let b = try await second.submit(pages: [page], name: "b.pdf", languages: [], fakeTexts: nil)
+    let statusA = await second.fetch(a)
+    #expect(statusA == .pending(state: "queued", position: 0) || statusA == .pending(state: "running", position: 0))
+    #expect(await second.fetch(b) == .pending(state: "queued", position: 1))
+}
+
+@Test func idCollisionThrowsAndKeepsTheOtherJob() async throws {
+    let root = tempRoot()
+    let queue = OcrJobQueue(root: root, engine: GateEngine(), newID: { "same-id-0000000000000000" })
+    let id = try await queue.submit(pages: [page], name: "a.pdf", languages: [], fakeTexts: nil)
+    await #expect(throws: (any Error).self) {
+        try await queue.submit(pages: [page, page], name: "b.pdf", languages: [], fakeTexts: nil)
+    }
+    let status = await queue.fetch(id)
+    #expect(status == .pending(state: "queued", position: 0) || status == .pending(state: "running", position: 0))
+    let meta = try String(contentsOf: root.appendingPathComponent(id).appendingPathComponent("meta.json"), encoding: .utf8)
+    #expect(meta.contains("a.pdf"))
+}
+
+@Test func foldersAreOwnerOnly() async throws {
+    let root = tempRoot()
+    let queue = OcrJobQueue(root: root, engine: GateEngine())
+    let id = try await queue.submit(pages: [page], name: "a.pdf", languages: [], fakeTexts: nil)
+    func mode(_ url: URL) throws -> Int {
+        (try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber)?.intValue ?? -1
+    }
+    #expect(try mode(root) == 0o700)
+    #expect(try mode(root.appendingPathComponent(id)) == 0o700)
+}

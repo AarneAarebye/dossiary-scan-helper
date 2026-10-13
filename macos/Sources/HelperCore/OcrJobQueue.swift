@@ -46,15 +46,23 @@ public actor OcrJobQueue {
     private let engine: OcrEngine
     private let now: @Sendable () -> Date
     private let log: @Sendable (String) -> Void
+    private let makeID: @Sendable () -> String
     private var order: [String] = []   // unfinished jobs, oldest first; order[0] runs
     private var running: String?
     private var nextSequence = 0
+    private var started = false
     private var worker: Task<Void, Never>?
     private var idleWaiters: [CheckedContinuation<Void, Never>] = []
 
     public init(root: URL, engine: OcrEngine, now: @escaping @Sendable () -> Date = { Date() },
                 log: @escaping @Sendable (String) -> Void = { _ in }) {
-        self.root = root; self.engine = engine; self.now = now; self.log = log
+        self.init(root: root, engine: engine, now: now, log: log, newID: { OcrJobQueue.newID() })
+    }
+
+    /// Tests pass their own id source.
+    init(root: URL, engine: OcrEngine, now: @escaping @Sendable () -> Date = { Date() },
+         log: @escaping @Sendable (String) -> Void = { _ in }, newID: @escaping @Sendable () -> String) {
+        self.root = root; self.engine = engine; self.now = now; self.log = log; self.makeID = newID
     }
 
     public static func isValidID(_ id: String) -> Bool {
@@ -63,7 +71,10 @@ public actor OcrJobQueue {
 
     static func newID() -> String {
         var bytes = [UInt8](repeating: 0, count: 24)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
+            var generator = SystemRandomNumberGenerator()
+            bytes = bytes.map { _ in UInt8.random(in: .min ... .max, using: &generator) }
+        }
         return Data(bytes).base64EncodedString()
             .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
@@ -82,11 +93,20 @@ public actor OcrJobQueue {
 
     private func remove(_ id: String) { try? FileManager.default.removeItem(at: dir(id)) }
 
+    /// Scanned personal documents: only the user may read them.
+    private static let ownerOnly: [FileAttributeKey: Any] = [.posixPermissions: 0o700]
+
     private func expired(_ meta: Meta) -> Bool { now().timeIntervalSince(meta.createdAt) > OcrJobQueue.retention }
 
     /// Loads jobs left from an earlier run: drops expired ones and resumes unfinished ones in their order.
-    public func start() {
-        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    /// Idempotent; submit and fetch start the queue themselves, so earlier jobs always keep their place.
+    public func start() { ensureStarted() }
+
+    private func ensureStarted() {
+        guard !started else { return }
+        started = true
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
+                                                 attributes: OcrJobQueue.ownerOnly)
         let names = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
         var unfinished: [(Int, String)] = []
         for id in names where OcrJobQueue.isValidID(id) {
@@ -100,10 +120,15 @@ public actor OcrJobQueue {
     }
 
     public func submit(pages: [PageImage], name: String, languages: [String], fakeTexts: [String]?) throws -> String {
-        let id = OcrJobQueue.newID()
+        ensureStarted()
+        let id = makeID()
         let folder = dir(id)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
+                                                attributes: OcrJobQueue.ownerOnly)
+        // Not withIntermediateDirectories: an id that already exists throws instead of writing into that job.
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false,
+                                                attributes: OcrJobQueue.ownerOnly)
         do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             for (index, page) in pages.enumerated() {
                 try page.data.write(to: folder.appendingPathComponent("page-\(index + 1).img"))
             }
@@ -122,6 +147,7 @@ public actor OcrJobQueue {
     }
 
     public func fetch(_ id: String) -> OcrJobStatus {
+        ensureStarted()
         guard OcrJobQueue.isValidID(id), let meta = readMeta(id) else { return .unknown }
         if expired(meta) {
             order.removeAll { $0 == id && $0 != running }
@@ -139,6 +165,9 @@ public actor OcrJobQueue {
             remove(id)
             return .failed(meta.message ?? "Text recognition failed.")
         default:
+            // Queued on disk but nothing will run it (its final write failed, or another queue wrote it):
+            // answering 202 would keep the client waiting forever.
+            guard id == running || order.contains(id) else { remove(id); return .unknown }
             let position = order.firstIndex(of: id) ?? 0
             return .pending(state: id == running ? "running" : "queued", position: position)
         }
@@ -160,7 +189,7 @@ public actor OcrJobQueue {
             running = id
             await runOne(id)
             running = nil
-            if order.first == id { order.removeFirst() }
+            order.removeAll { $0 == id }
             expireFinished()
         }
         worker = nil
@@ -170,15 +199,15 @@ public actor OcrJobQueue {
     }
 
     private func runOne(_ id: String) async {
-        guard var meta = readMeta(id) else { return }
+        guard var meta = readMeta(id), meta.state == "queued" else { return }
         let folder = dir(id)
         var pages: [PageImage] = []
         for index in 0..<meta.pages {
             guard let data = try? Data(contentsOf: folder.appendingPathComponent("page-\(index + 1).img")) else {
                 meta.state = "failed"; meta.message = "A scanned page of this job went missing."
-                try? writeMeta(meta, id); return
+                finish(meta, id); return
             }
-            pages.append(PageImage(data: data, dpi: meta.dpis[index]))
+            pages.append(PageImage(data: data, dpi: meta.dpis[safe: index] ?? 300))
         }
         let input = OcrJobInput(pages: pages, languages: meta.languages, fakeTexts: meta.fakeTexts,
                                 createdAt: meta.createdAt)
@@ -195,9 +224,20 @@ public actor OcrJobQueue {
             log("Text recognition job \(id.prefix(6))… failed: \(meta.message ?? "")")
         }
         guard FileManager.default.fileExists(atPath: folder.path) else { return }  // expired meanwhile
-        try? writeMeta(meta, id)
+        guard finish(meta, id) else { return }
         for index in 0..<meta.pages {
             try? FileManager.default.removeItem(at: folder.appendingPathComponent("page-\(index + 1).img"))
+        }
+    }
+
+    /// Writes the job's final state. If that fails the job is removed, so the client gets 404 and falls back
+    /// to its own text recognition instead of waiting on a job that stays "queued" forever.
+    @discardableResult
+    private func finish(_ meta: Meta, _ id: String) -> Bool {
+        do { try writeMeta(meta, id); return true } catch {
+            log("Text recognition job \(id.prefix(6))… couldn't be saved: \(error.localizedDescription)")
+            remove(id)
+            return false
         }
     }
 

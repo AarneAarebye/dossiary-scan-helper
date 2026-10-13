@@ -27,3 +27,13 @@ Each browser pairs once. **Forget paired browsers (N)** in the menu disconnects 
 - For a network scanner, check System Settings › Privacy & Security › Local Network, and allow
   Dossiary Scan Helper.
 - **Open log** in the menu shows what the helper saw.
+
+## Files it keeps
+
+- `~/Library/Application Support/dossiary-scan-helper/ocr-jobs/` holds scans waiting to be made
+  searchable. Each stays at most 7 days and is deleted as soon as Dossiary has fetched the
+  searchable PDF.
+- `~/Library/Logs/dossiary-scan-helper/helper.log` is the log that **Open log** shows.
+
+To remove the helper completely, quit it, delete it from Applications, and delete these two
+folders.

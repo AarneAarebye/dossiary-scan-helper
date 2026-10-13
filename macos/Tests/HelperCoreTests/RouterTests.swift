@@ -192,6 +192,22 @@ private func makeOcrRouter() async -> (Router, String) {
     #expect(file["ocrJob"] == nil)
 }
 
+@Test func failedSubmitStillAnswersTheScan() async throws {
+    let pairing = PairingStore(mode: .fake)
+    let token = try pairing.pair(code: "000000", client: nil)
+    // The queue's root is a regular file, so no job folder can be made.
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("router-ocr-file-\(UUID().uuidString)")
+    try Data("x".utf8).write(to: root)
+    let queue = OcrJobQueue(root: root, engine: FakeOcrEngine())
+    let router = Router(backend: FakeBackend(), pairing: pairing, ocrJobs: queue)
+    let response = await router.handle(req("POST", "/scan", token: token,
+                                            body: #"{"scanner":"fake:ocr","ocr":true}"#))
+    #expect(response.status == 200)
+    let files = try #require(object(response)["files"] as? [[String: Any]])
+    #expect(files.count == 1)
+    #expect(files.first?["ocrJob"] == nil)
+}
+
 @Test func realScannersGetTheEngineLanguages() async {
     let pairing = PairingStore(mode: .fake)
     let token = try! pairing.pair(code: "000000", client: nil)

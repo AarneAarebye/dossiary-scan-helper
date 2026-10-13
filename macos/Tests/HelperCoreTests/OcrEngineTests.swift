@@ -96,3 +96,33 @@ private func pixels(_ pdf: Data) -> [UInt8] {
     #expect(Date().timeIntervalSince(created) >= 1.9)
     #expect(pdf.range(of: Data("Flatbed page 1".utf8)) != nil)
 }
+
+private struct RecognitionFailed: Error {}
+
+@Test func recognitionFailingOnEveryPageFailsTheJob() async throws {
+    let engine = VisionOcrEngine(recognizer: { _, _ in throw RecognitionFailed() })
+    let input = OcrJobInput(pages: [try textPage(["A"]), try textPage(["B"])], languages: [], fakeTexts: nil,
+                            createdAt: Date())
+    await #expect(throws: ProtocolError(500, "Text recognition failed on every page.")) {
+        try await engine.makeSearchable(input)
+    }
+}
+
+@Test func recognitionFailingOnOnePageStillSucceeds() async throws {
+    let calls = Counter()
+    let engine = VisionOcrEngine(recognizer: { _, _ in
+        if calls.next() == 0 { throw RecognitionFailed() }
+        return [OcrLine(text: "Zweite Seite", box: CGRect(x: 0.1, y: 0.8, width: 0.5, height: 0.03))]
+    })
+    let input = OcrJobInput(pages: [try textPage(["A"]), try textPage(["B"])], languages: [], fakeTexts: nil,
+                            createdAt: Date())
+    let document = try #require(PDFDocument(data: try await engine.makeSearchable(input)))
+    #expect(document.pageCount == 2)
+    let secondText: String = document.page(at: 1)?.string ?? ""
+    #expect(secondText.contains("Zweite Seite"))
+}
+
+private final class Counter: @unchecked Sendable {
+    private let lock = NSLock(); private var value = 0
+    func next() -> Int { lock.lock(); defer { value += 1; lock.unlock() }; return value }
+}

@@ -23,10 +23,12 @@ public final class HelperRuntime: @unchecked Sendable {
         }
         let ocrLanguages: [String]
         if options.fakeScanners {
-            // Fake mode keeps its jobs in a fresh temporary folder: nothing from a test run lingers.
-            ocrJobs = OcrJobQueue(root: FileManager.default.temporaryDirectory
-                .appendingPathComponent("dossiary-scan-helper-fake-ocr-\(UUID().uuidString)"),
-                                  engine: FakeOcrEngine(), log: write)
+            // Fake mode keeps its jobs in one fixed temporary folder, emptied at every start, so test runs
+            // neither see each other's jobs nor pile up folders.
+            let fakeRoot = FileManager.default.temporaryDirectory
+                .appendingPathComponent("dossiary-scan-helper-fake-ocr", isDirectory: true)
+            try? FileManager.default.removeItem(at: fakeRoot)
+            ocrJobs = OcrJobQueue(root: fakeRoot, engine: FakeOcrEngine(), log: write)
             ocrLanguages = []
         } else {
             ocrJobs = OcrJobQueue(root: OcrJobQueue.defaultRoot, engine: VisionOcrEngine(), log: write)

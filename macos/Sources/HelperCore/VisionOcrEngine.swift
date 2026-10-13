@@ -6,7 +6,12 @@ import Vision
 /// Real text recognition: Vision's accurate recognizer on each page, the lines drawn as invisible text over
 /// the unchanged page image. A page Vision can't read is left without text; only an unreadable image fails.
 public struct VisionOcrEngine: OcrEngine {
-    public init() {}
+    let recognizer: @Sendable (CGImage, [String]) throws -> [OcrLine]
+
+    public init() { self.init(recognizer: { try VisionOcrEngine.recognize($0, languages: $1) }) }
+
+    /// Tests pass their own recognizer.
+    init(recognizer: @escaping @Sendable (CGImage, [String]) throws -> [OcrLine]) { self.recognizer = recognizer }
 
     /// The protocol codes this Mac's Vision can recognize.
     public static func offeredCodes() -> [String] {
@@ -28,16 +33,42 @@ public struct VisionOcrEngine: OcrEngine {
         }
     }
 
+    /// Vision blocks its thread for seconds per page, so it runs on its own queue, not the cooperative pool.
+    private static let workQueue = DispatchQueue(label: "dossiary-scan-helper.vision-ocr", qos: .utility)
+
     public func makeSearchable(_ input: OcrJobInput) async throws -> Data {
         let languages = OcrLanguages.visionLanguages(for: input.languages)
-        var text: [[OcrLine]] = []
-        for page in input.pages {
-            guard let source = CGImageSourceCreateWithData(page.data as CFData, nil),
-                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-                throw ProtocolError(500, "A scanned page couldn't be read for text recognition.")
+        let recognizer = self.recognizer
+        let pages = input.pages
+        let text: [[OcrLine]] = try await withCheckedThrowingContinuation { continuation in
+            VisionOcrEngine.workQueue.async {
+                continuation.resume(with: Result {
+                    try VisionOcrEngine.recognizeAll(pages, languages: languages, recognizer: recognizer)
+                })
             }
-            text.append((try? VisionOcrEngine.recognize(image, languages: languages)) ?? [])
         }
         return try PdfBuilder.makePdf(input.pages, text: text)
+    }
+
+    /// A page recognized without text stays without text; recognition failing on every page fails the job.
+    static func recognizeAll(_ pages: [PageImage], languages: [String],
+                             recognizer: (CGImage, [String]) throws -> [OcrLine]) throws -> [[OcrLine]] {
+        var text: [[OcrLine]] = []
+        var failures = 0
+        for page in pages {
+            let lines: [OcrLine]? = try autoreleasepool {
+                guard let source = CGImageSourceCreateWithData(page.data as CFData, nil),
+                      let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+                    throw ProtocolError(500, "A scanned page couldn't be read for text recognition.")
+                }
+                return try? recognizer(image, languages)
+            }
+            if lines == nil { failures += 1 }
+            text.append(lines ?? [])
+        }
+        if !pages.isEmpty && failures == pages.count {
+            throw ProtocolError(500, "Text recognition failed on every page.")
+        }
+        return text
     }
 }
