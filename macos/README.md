@@ -11,7 +11,7 @@ To install a release, see [docs/install-macos.md](../docs/install-macos.md).
 Needs macOS 14 or later and the Command Line Tools (`xcode-select --install`); Xcode isn't needed.
 
     cd macos
-    swift test                      # unit tests
+    scripts/test.sh                 # unit tests (swift test, plus the Testing plugin path)
     scripts/run-conformance.sh      # the conformance suite against --fake-scanners
     swift run dossiary-scan-helper --fake-scanners   # menu bar app with the seven fake scanners
 

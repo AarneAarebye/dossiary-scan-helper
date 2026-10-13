@@ -16,6 +16,39 @@ private func status(_ text: String) -> Int? {
     }
 }
 
+private let ocrScanner = ScannerInfo(id: "s:ocr", name: "OCR Scanner", sources: [.flatbed], duplex: false,
+                                     colorModes: [.color], resolutions: [300], extras: [], ocrLanguages: ["deu", "eng"])
+private let plainScanner = ScannerInfo(id: "s:plain", name: "Plain Scanner", sources: [.flatbed], duplex: false,
+                                       colorModes: [.color], resolutions: [300], extras: [])
+
+private func ocrStatus(_ body: [String: Any]) -> Int? {
+    do { _ = try ScanRequestValidator.validate(body, scanners: [ocrScanner, plainScanner]); return nil }
+    catch let error as ProtocolError { return error.status } catch { return -1 }
+}
+
+@Test func ocrFieldTypes() {
+    #expect(ocrStatus(["scanner": "s:ocr", "ocr": "yes"]) == 400)
+    #expect(ocrStatus(["scanner": "s:ocr", "ocr": 1]) == 400)
+    #expect(ocrStatus(["scanner": "s:ocr", "ocr": true, "ocrLanguages": "deu"]) == 400)
+    #expect(ocrStatus(["scanner": "s:ocr", "ocr": true, "ocrLanguages": [1]]) == 400)
+    // Type errors come before 422s.
+    #expect(ocrStatus(["scanner": "s:ocr", "ocr": "yes", "ocrLanguages": ["xyz"]]) == 400)
+    #expect(ocrStatus(["scanner": "s:ocr", "ocr": true, "resolution": 301, "ocrLanguages": [1]]) == 400)
+}
+
+@Test func ocrValues() throws {
+    #expect(ocrStatus(["scanner": "s:plain", "ocr": true]) == 422)
+    #expect(ocrStatus(["scanner": "s:ocr", "ocr": true, "ocrLanguages": ["xyz"]]) == 422)
+    #expect(ocrStatus(["scanner": "s:plain", "ocr": false]) == nil)
+    #expect(ocrStatus(["scanner": "s:plain", "ocrLanguages": ["xyz"]]) == nil)  // type-checked only
+    let (_, settings) = try ScanRequestValidator.validate(
+        ["scanner": "s:ocr", "ocr": true, "ocrLanguages": ["eng", "deu", "eng"]], scanners: [ocrScanner])
+    #expect(settings.ocr)
+    #expect(settings.ocrLanguages == ["eng", "deu"])
+    let (_, plain) = try ScanRequestValidator.validate(["scanner": "s:ocr"], scanners: [ocrScanner])
+    #expect(!plain.ocr && plain.ocrLanguages.isEmpty)
+}
+
 @Test func fakeTableHasTheSevenScannersInOrder() {
     #expect(FakeScanners.infos.map(\.id) == ["fake:flatbed", "fake:feeder", "fake:splitter", "fake:jam",
                                              "fake:slow", "fake:offline", "fake:empty"])

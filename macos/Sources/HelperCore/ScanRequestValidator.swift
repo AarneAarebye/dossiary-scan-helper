@@ -35,6 +35,17 @@ public enum ScanRequestValidator {
             }
         }
 
+        if object["ocr"] != nil && JSONBody.bool(object["ocr"]) == nil {
+            throw ProtocolError(400, "“ocr” must be true or false.")
+        }
+        var ocrLanguages: [String] = []
+        if let raw = object["ocrLanguages"] {
+            guard let list = raw as? [Any], list.allSatisfy({ $0 is String }) else {
+                throw ProtocolError(400, "“ocrLanguages” must be a list of language codes.")
+            }
+            for case let code as String in list where !ocrLanguages.contains(code) { ocrLanguages.append(code) }
+        }
+
         let sourceText = object["source"] as? String ?? scanner.sources[0].rawValue
         guard let source = Source(rawValue: sourceText), scanner.sources.contains(source) else {
             throw ProtocolError(422, "\(scanner.name) has no \(sourceText) source.")
@@ -58,8 +69,18 @@ public enum ScanRequestValidator {
         for (name, on) in extras.sorted(by: { $0.key < $1.key }) where on && !scanner.extras.contains(name) {
             throw ProtocolError(422, "\(scanner.name) doesn't offer “\(name)”.")
         }
+        let ocr = JSONBody.bool(object["ocr"]) ?? false
+        if ocr {
+            guard !scanner.ocrLanguages.isEmpty else {
+                throw ProtocolError(422, "\(scanner.name) can't make searchable PDFs.")
+            }
+            for code in ocrLanguages where !scanner.ocrLanguages.contains(code) {
+                throw ProtocolError(422, "\(scanner.name) can't recognize text in “\(code)”.")
+            }
+        }
 
         return (scanner, ScanSettings(source: source, duplex: duplex, colorMode: colorMode,
-                                      resolution: resolution, extras: extras))
+                                      resolution: resolution, extras: extras,
+                                      ocr: ocr, ocrLanguages: ocr ? ocrLanguages : []))
     }
 }
