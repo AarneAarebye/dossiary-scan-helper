@@ -48,4 +48,10 @@ public final class HelperRuntime: @unchecked Sendable {
         log.write("Dossiary Scan Helper \(HelperVersion.string) listening on 127.0.0.1:\(options.port)"
                   + (options.fakeScanners ? " with fake scanners." : "."))
     }
+
+    /// Before quitting: leaves no scan running and no scanner session open.
+    public func stop() async { await backend.stopScans() }
+
+    /// Whether quitting now would leave a scanner session open (so `stop()` has something to do).
+    @MainActor public var hasOpenScannerSessions: Bool { (backend as? ImageCaptureBackend)?.hasOpenSessions ?? false }
 }

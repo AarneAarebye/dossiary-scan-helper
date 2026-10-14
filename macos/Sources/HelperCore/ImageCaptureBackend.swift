@@ -201,6 +201,29 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
         DispatchQueue.main.asyncAfter(deadline: .now() + ImageCaptureBackend.inactivityLimit, execute: item)
     }
 
+    // MARK: Quitting
+
+    public func stopScans() async { await closeOpenSessions() }
+
+    /// True while a scan (or its session setup) is under way.
+    @MainActor public var hasOpenSessions: Bool { !busy.isEmpty }
+
+    /// A scan's session stays open on the scanner's driver when the helper quits mid-scan, and the scanner then
+    /// counts as busy for every app until the driver process is killed (Canon MF650C). So before quitting,
+    /// each open session's scan is cancelled and the session closed, waiting up to 5 s for each close.
+    @MainActor private func closeOpenSessions() async {
+        for id in busy {
+            guard let device = devices[id] else { continue }
+            if collectors[id] != nil {
+                device.cancelScan()
+                log("Stopped the scan on \(infos[id]?.name ?? "the scanner") because the helper is quitting.")
+            }
+            _ = try? await awaitCallback(timeout: 5) { (once: Once<Void>) in
+                device.requestCloseSession(options: [:]) { _ in once.resume(.success(())) }
+            }
+        }
+    }
+
     // MARK: Session helpers
 
     /// Opens a session and waits for that session's own start: `deviceDidBecomeReady` (up to 10 s), then the

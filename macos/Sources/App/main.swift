@@ -21,7 +21,20 @@ do {
     exit(1)
 }
 
+/// SIGTERM (kill, launchd) and SIGINT (Ctrl+C) quit the same careful way as the menu's Quit.
+var quitSignalSources: [DispatchSourceSignal] = []
+func onQuitSignal(_ handler: @escaping () -> Void) {
+    for number in [SIGTERM, SIGINT] {
+        signal(number, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
+        source.setEventHandler(handler: handler)
+        source.resume()
+        quitSignalSources.append(source)
+    }
+}
+
 if options.headless {
+    onQuitSignal { Task { await runtime.stop(); exit(0) } }  // before start, so no signal arrives unhandled
     do { try runtime.start() } catch {
         FileHandle.standardError.write(Data("\(error)\n".utf8))
         exit(1)
@@ -33,5 +46,6 @@ if options.headless {
     app.setActivationPolicy(.accessory)
     let delegate = AppDelegate(runtime: runtime)
     app.delegate = delegate
+    onQuitSignal { NSApp.terminate(nil) }
     withExtendedLifetime(delegate) { app.run() }
 }

@@ -31,6 +31,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshScanners()
     }
 
+    private var stopped = false
+
+    /// Every quit (the menu, Activity Monitor, logout, SIGTERM) passes here. With a scan under way, this quit
+    /// is cancelled while the scan is stopped and its session closed, then the app quits for real. Without one
+    /// it quits at once, so a logout isn't held up. (Not `.terminateLater`: that waits in a modal run loop
+    /// mode, where the main-queue work stopping a scan never runs.)
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if stopped || !runtime.hasOpenScannerSessions { return .terminateNow }
+        Task { @MainActor in
+            await runtime.stop()
+            stopped = true
+            sender.terminate(nil)
+        }
+        return .terminateCancel
+    }
+
     private func refreshScanners() {
         Task { [weak self] in
             guard let self else { return }

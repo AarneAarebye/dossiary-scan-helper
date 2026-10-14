@@ -27,4 +27,11 @@ public protocol ScannerBackend: AnyObject, Sendable {
     func scan(scannerID: String, settings: ScanSettings) async throws -> ScanDocuments
     /// Called (on any thread) whenever the scanner list changes.
     func setChangeHandler(_ handler: @escaping @Sendable () -> Void)
+    /// Before quitting: cancels any running scan and closes the scanner sessions this helper has open, so the
+    /// scanner isn't left busy for every other app.
+    func stopScans() async
+}
+
+public extension ScannerBackend {
+    func stopScans() async {}
 }
