@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private var stopped = false
+    private var stopping = false
 
     /// Every quit (the menu, Activity Monitor, logout, SIGTERM) passes here. With a scan under way, this quit
     /// is cancelled while the scan is stopped and its session closed, then the app quits for real. Without one
@@ -39,6 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// mode, where the main-queue work stopping a scan never runs.)
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if stopped || !runtime.hasOpenScannerSessions { return .terminateNow }
+        if stopping { return .terminateCancel }  // a second Quit while the first is still stopping the scan
+        stopping = true
         Task { @MainActor in
             await runtime.stop()
             stopped = true
