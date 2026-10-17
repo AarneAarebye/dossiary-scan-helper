@@ -29,6 +29,19 @@ public struct ScannerInfo: Equatable, Sendable {
         if !ocrLanguages.isEmpty { object["ocr"] = ["languages": ocrLanguages] }
         return object
     }
+
+    /// A scanner as another helper (scanix500-server) lists it in GET /scanners.
+    public init?(json: [String: Any]) {
+        guard let id = json["id"] as? String, let name = json["name"] as? String else { return nil }
+        let ocr = json["ocr"] as? [String: Any]
+        self.init(id: id, name: name,
+                  sources: (json["sources"] as? [String] ?? []).compactMap(Source.init(rawValue:)),
+                  duplex: json["duplex"] as? Bool ?? false,
+                  colorModes: (json["colorModes"] as? [String] ?? []).compactMap(ColorMode.init(rawValue:)),
+                  resolutions: json["resolutions"] as? [Int] ?? [],
+                  extras: json["extras"] as? [String] ?? [],
+                  ocrLanguages: ocr?["languages"] as? [String] ?? [])
+    }
 }
 
 /// A validated POST /scan request, with every default filled in.

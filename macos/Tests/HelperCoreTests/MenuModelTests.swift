@@ -28,3 +28,15 @@ import Testing
     #expect(entries.contains(.action("Forget paired browsers (0)", .forget, checked: false, enabled: false)))
     #expect(entries.contains(.action("Start at login", .startAtLogin, checked: false, enabled: false)))
 }
+
+@Test func networkScannersSection() {
+    let entries = MenuModel.entries(scanners: [], port: 8766, fake: false, pairedCount: 0, startAtLogin: true,
+                                    networkServers: [NetworkServerEntry(id: "0AC646A4E3664417", name: "scanner", status: .connected),
+                                                     NetworkServerEntry(id: "1111111111111111", name: "attic", status: .needsPairing)])
+    #expect(entries.contains(.info("scanner: connected")))
+    #expect(entries.contains(.info("attic: needs pairing again")))
+    #expect(entries.contains(.action("Remove “attic”", .removeNetworkScanner("1111111111111111"), checked: false, enabled: true)))
+    #expect(entries.contains(.action("Add network scanner…", .addNetworkScanner, checked: false, enabled: true)))
+    let fakeMode = MenuModel.entries(scanners: [], port: 8766, fake: true, pairedCount: 0, startAtLogin: nil)
+    #expect(!fakeMode.contains(.action("Add network scanner…", .addNetworkScanner, checked: false, enabled: true)))
+}

@@ -20,6 +20,27 @@ Needs macOS 14 (Sonoma) or later.
 
 Each browser pairs once. **Forget paired browsers (N)** in the menu disconnects them all. N is the number of paired browsers; the item is greyed out when none are paired.
 
+## Use an iX500 on a Raspberry Pi
+
+A ScanSnap iX500 attached to a Raspberry Pi running **scanix500-server**
+(see [its guide](https://github.com/AarneAarebye/iX500/blob/main/docs/raspberry-pi.md))
+can be shared by every Mac in the house:
+
+1. In the helper's menu, choose **Add network scanner…**. Scan servers on
+   your network are listed by name; if yours isn't, type its address (for
+   example `scanner.local`).
+2. Click **Connect**. The helper shows the server's certificate fingerprint;
+   it should match what `scanix500-server status` prints on the Pi.
+3. Click **Pair with the Scan button** and, within 2 minutes, press the Scan
+   button on the iX500. (Or run `sudo scanix500-server pair` on the Pi and
+   enter its code.)
+
+The scanner then appears in Dossiary as "ScanSnap iX500 (<name>)". The menu
+shows each network scanner's state; **Remove** forgets it. The connection is
+encrypted, and the helper refuses the server if its certificate ever changes
+(after reinstalling the Pi, remove the scanner and add it again). The first
+time, macOS asks to allow Dossiary Scan Helper on the local network.
+
 ## If a scanner is missing
 
 - Check that it's switched on and appears in Apple's Image Capture app.
@@ -33,7 +54,9 @@ Each browser pairs once. **Forget paired browsers (N)** in the menu disconnects 
 - `~/Library/Application Support/dossiary-scan-helper/ocr-jobs/` holds scans waiting to be made
   searchable. Each stays at most 7 days and is deleted as soon as Dossiary has fetched the
   searchable PDF.
+- `~/Library/Application Support/dossiary-scan-helper/remote-servers.json` lists the paired
+  network scanners; their keys are in your Keychain ("com.aarneaarebye.dossiary-scan-helper.remote").
 - `~/Library/Logs/dossiary-scan-helper/helper.log` is the log that **Open log** shows.
 
-To remove the helper completely, quit it, delete it from Applications, and delete these two
-folders.
+To remove the helper completely, quit it, delete it from Applications, delete these files and
+folders, and remove its network-scanner keys in Keychain Access.

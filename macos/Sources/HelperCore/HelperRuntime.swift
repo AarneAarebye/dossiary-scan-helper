@@ -6,6 +6,8 @@ public final class HelperRuntime: @unchecked Sendable {
     public let backend: ScannerBackend
     public let pairing: PairingStore
     public let ocrJobs: OcrJobQueue
+    public let remoteStore: RemoteServerStore?
+    public let remote: RemoteScanners?
     public let router: Router
     public let server: HTTPServer
     private let log: Log
@@ -17,9 +19,14 @@ public final class HelperRuntime: @unchecked Sendable {
         if options.fakeScanners {
             backend = FakeBackend()
             pairing = PairingStore(mode: .fake)
+            remoteStore = nil
+            remote = nil
         } else {
             backend = ImageCaptureBackend(log: { [log] in log.write($0) })
             pairing = PairingStore(mode: .real(fileURL: PairingStore.defaultFileURL), log: { [log] in log.write($0) })
+            let store = RemoteServerStore(fileURL: RemoteServerStore.defaultFileURL, secrets: KeychainSecretStore())
+            remoteStore = store
+            remote = RemoteScanners(store: store, log: write)
         }
         let ocrLanguages: [String]
         if options.fakeScanners {
@@ -34,7 +41,8 @@ public final class HelperRuntime: @unchecked Sendable {
             ocrJobs = OcrJobQueue(root: OcrJobQueue.defaultRoot, engine: VisionOcrEngine(), log: write)
             ocrLanguages = VisionOcrEngine.offeredCodes()
         }
-        router = Router(backend: backend, pairing: pairing, ocrJobs: ocrJobs, ocrLanguages: ocrLanguages, log: write)
+        router = Router(backend: backend, pairing: pairing, ocrJobs: ocrJobs, ocrLanguages: ocrLanguages, remote: remote,
+                        log: write)
         server = HTTPServer(port: options.port, router: router, log: write)
     }
 

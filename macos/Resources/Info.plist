@@ -13,6 +13,7 @@
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSLocalNetworkUsageDescription</key><string>Dossiary Scan Helper looks for scanners on your network.</string>
+    <key>NSBonjourServices</key><array><string>_dossiary-scan._tcp</string></array>
     <key>NSHumanReadableCopyright</key><string>© 2026 Aarne Aarebye. MIT License.</string>
 </dict>
 </plist>

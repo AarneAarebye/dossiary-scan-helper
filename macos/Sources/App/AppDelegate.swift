@@ -6,6 +6,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var scanners: [ScannerInfo] = []
     private lazy var pairingPanel = PairingPanel(pairing: runtime.pairing)
+    private lazy var networkPanel: NetworkScannerPanel? = runtime.remoteStore.map { store in
+        NetworkScannerPanel(store: store) { [weak self] in self?.refreshScanners() }
+    }
 
     init(runtime: HelperRuntime) { self.runtime = runtime }
 
@@ -53,8 +56,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshScanners() {
         Task { [weak self] in
             guard let self else { return }
-            let list = await runtime.backend.listScanners()
-            await MainActor.run { self.scanners = list }
+            let local = await runtime.backend.listScanners()
+            let network = await runtime.remote?.listScanners() ?? []
+            await MainActor.run { self.scanners = local + network }
         }
     }
 
@@ -63,7 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         let entries = MenuModel.entries(scanners: scanners, port: runtime.options.port, fake: runtime.options.fakeScanners,
                                         pairedCount: runtime.pairing.pairedCount,
-                                        startAtLogin: LoginItem.isAvailable ? LoginItem.isEnabled : nil)
+                                        startAtLogin: LoginItem.isAvailable ? LoginItem.isEnabled : nil,
+                                        networkServers: runtime.remote.map { remote in
+                                            remote.servers.map { NetworkServerEntry(id: $0.id, name: $0.name, status: remote.statuses[$0.id]) }
+                                        })
         for entry in entries {
             switch entry {
             case .separator:
@@ -114,6 +121,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         case .openLog:
             NSWorkspace.shared.open(Log.shared.url)
+        case .addNetworkScanner:
+            networkPanel?.show()
+        case .removeNetworkScanner(let id):
+            do {
+                try runtime.remoteStore?.remove(id: id)
+                Log.shared.write("Removed a network scanner.")
+                refreshScanners()
+            } catch {
+                let alert = NSAlert(error: error)
+                NSApp.activate(ignoringOtherApps: true)
+                alert.runModal()
+            }
         case .quit:
             NSApp.terminate(nil)
         }

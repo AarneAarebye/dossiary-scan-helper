@@ -254,6 +254,28 @@ Needs the token, like `/scan`.
 - Clients poll every few seconds, without a timeout of their own beyond
   the 7 days.
 
+## Network scan servers (scanix500-server)
+
+A helper may also list scanners of a **scanix500-server** on the local
+network (a Raspberry Pi with an iX500). Dossiary never talks to the server:
+the helper lists its scanners as `remote:<server>:<id>`, named
+"<scanner> (<server name>)", forwards `POST /scan` and returns the answer
+with each `ocrJob` renamed `remote.<server>.<job>`, and forwards
+`GET /ocr/remote.<server>.<job>`. An unreachable server answers OCR polls
+with 503, so Dossiary keeps polling and eventually falls back to its own OCR.
+
+The server listens over **HTTPS** (port 8767 by default) with a self-signed
+certificate; the helper pins its SHA-256 fingerprint when pairing and refuses
+any other certificate. It is found with Bonjour (`_dossiary-scan._tcp`). It
+refuses any request with an `Origin` header (no web pages), and its
+`GET /health` adds `"remote": true`, `"fingerprint"` (64 hex digits) and
+`"name"`. Besides `POST /pair` (with a code from `sudo scanix500-server
+pair`, valid 5 minutes) it offers **button pairing**: `POST /pair/button`
+`{"client": "<name>"}` → `202 {"request": "<id>"}`; then
+`GET /pair/button/<id>` → `202` while waiting, `200 {"token"}` once the
+iX500's Scan button is pressed, `408` after 2 minutes, `409` when two
+computers asked at once (both refused), `429` after 10 requests in a minute.
+
 ## Errors
 
 | Code | Meaning |

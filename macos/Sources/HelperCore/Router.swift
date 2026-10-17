@@ -26,14 +26,16 @@ public final class Router: @unchecked Sendable {
     private let pairing: PairingStore
     private let ocrJobs: OcrJobQueue?
     private let ocrLanguages: [String]
+    private let remote: RemoteScanners?
     private let now: @Sendable () -> Date
     private let log: @Sendable (String) -> Void
     private let gate = ScanGate()
 
     public init(backend: ScannerBackend, pairing: PairingStore, ocrJobs: OcrJobQueue? = nil,
-                ocrLanguages: [String] = [], now: @escaping @Sendable () -> Date = { Date() },
+                ocrLanguages: [String] = [], remote: RemoteScanners? = nil,
+                now: @escaping @Sendable () -> Date = { Date() },
                 log: @escaping @Sendable (String) -> Void = { _ in }) {
-        self.backend = backend; self.pairing = pairing; self.ocrJobs = ocrJobs; self.ocrLanguages = ocrLanguages; self.now = now; self.log = log
+        self.backend = backend; self.pairing = pairing; self.ocrJobs = ocrJobs; self.ocrLanguages = ocrLanguages; self.remote = remote; self.now = now; self.log = log
     }
 
     public static func errorBody(_ message: String) -> [String: Any] { ["ok": false, "partial": false, "message": message] }
@@ -106,6 +108,12 @@ public final class Router: @unchecked Sendable {
     private func scan(_ request: HTTPRequest, origin: String?) async throws -> HTTPResponse {
         let body = try request.jsonBody()
         let (scanner, settings) = try ScanRequestValidator.validate(body, scanners: await scanners())
+        if let remote, remote.owns(scanner.id) {
+            log("Scanning with \(scanner.name) over the network: \(settings.source.rawValue), \(settings.colorMode.rawValue), \(settings.resolution) dpi\(settings.duplex ? ", both sides" : "")\(settings.ocr ? ", searchable" : "").")
+            let (status, payload) = try await remote.scan(scannerID: scanner.id, settings: settings)
+            log(payload["message"] as? String ?? "Network scan finished.")
+            return .json(status, payload, origin: origin)
+        }
         guard await gate.tryBegin() else {
             throw ProtocolError(409, "Another scan is still running. Try again when it has finished.")
         }
@@ -140,15 +148,20 @@ public final class Router: @unchecked Sendable {
     /// The backend's scanners as offered: without a job queue nothing offers `ocr` (fake:ocr included);
     /// with one, scanners without their own list get the engine's languages.
     private func scanners() async -> [ScannerInfo] {
-        await backend.listScanners().map { scanner in
+        let local = await backend.listScanners().map { scanner in
             var scanner = scanner
             if ocrJobs == nil { scanner.ocrLanguages = [] }
             else if scanner.ocrLanguages.isEmpty { scanner.ocrLanguages = ocrLanguages }
             return scanner
         }
+        return local + (await remote?.listScanners() ?? [])
     }
 
     private func ocr(_ id: String, origin: String?) async -> HTTPResponse {
+        if let remote, remote.isRemoteJob(id) {
+            let (status, body) = await remote.fetchOCR(id)
+            return .json(status, body, origin: origin)
+        }
         let unknown = Router.errorBody("This text recognition job is unknown, already fetched, or expired.")
         guard let ocrJobs else { return .json(404, unknown, origin: origin) }
         switch await ocrJobs.fetch(id) {
