@@ -222,3 +222,38 @@ private func makeOcrRouter() async -> (Router, String) {
     #expect(flatbedLanguages == ["eng"])
     #expect(ocrLanguages == ["deu", "eng"])  // its own list wins
 }
+
+private func remoteRouter(handler: @escaping @Sendable (RemoteRequest) throws -> (Int, Any)) -> (Router, String, RemoteServer) {
+    let pairing = PairingStore(mode: .fake)
+    let token = try! pairing.pair(code: "000000", client: nil)
+    let (store, server) = pairedStore()
+    let remote = RemoteScanners(store: store, transport: { _ in FakeTransport(handler: handler) })
+    return (Router(backend: FakeBackend(), pairing: pairing, remote: remote), token, server)
+}
+
+@Test func networkScannersAreListedBesideLocalOnes() async {
+    let (router, token, server) = remoteRouter { _ in (200, ["scanners": [piScanner]]) }
+    let ids = ((object(await router.handle(req("GET", "/scanners", token: token)))["scanners"]) as? [[String: Any]] ?? [])
+        .compactMap { $0["id"] as? String }
+    #expect(ids.contains("remote:\(server.id):sane:ix500"))
+    #expect(ids.contains { $0.hasPrefix("fake:") })
+}
+
+@Test func scansOnANetworkScannerAreForwarded() async {
+    let (router, token, server) = remoteRouter { request in
+        request.path == "/scanners" ? (200, ["scanners": [piScanner]])
+            : (200, ["ok": true, "partial": false, "message": "1 page scanned.",
+                     "files": [["name": "scan_1.pdf", "pages": 1, "data": "JVBERg==", "ocrJob": "j1"]]])
+    }
+    let body = #"{"scanner":"remote:\#(server.id):sane:ix500","source":"feeder","ocr":true,"ocrLanguages":["deu"]}"#
+    let response = await router.handle(req("POST", "/scan", token: token, body: body))
+    #expect(response.status == 200)
+    let file = (object(response)["files"] as? [[String: Any]])?.first
+    #expect(file?["ocrJob"] as? String == "remote.\(server.id).j1")
+}
+
+@Test func networkOcrJobsAreForwarded() async {
+    let (router, token, server) = remoteRouter { _ in (202, ["ok": true, "state": "running", "position": 0]) }
+    let response = await router.handle(req("GET", "/ocr/remote.\(server.id).j1", token: token))
+    #expect(response.status == 202 && object(response)["state"] as? String == "running")
+}
