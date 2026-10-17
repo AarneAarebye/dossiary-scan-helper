@@ -43,6 +43,9 @@ time, macOS asks to allow Dossiary Scan Helper on the local network.
 
 ## If a scanner is missing
 
+- If the helper's scanner icon doesn't appear in the menu bar although the helper runs, check
+  System Settings › Menu Bar and allow Dossiary Scan Helper there. macOS may hide a newly
+  installed or updated app's icon; on a MacBook, icons that don't fit beside the notch are hidden too.
 - Check that it's switched on and appears in Apple's Image Capture app.
 - Close Image Capture and Preview: a scanner works with one app at a time.
 - For a network scanner, check System Settings › Privacy & Security › Local Network, and allow
