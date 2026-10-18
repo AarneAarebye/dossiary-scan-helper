@@ -47,6 +47,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Localization scripts
+        run: python -m unittest discover -s macos/scripts -p 'test_*.py' -v
       - name: Unit tests
         working-directory: macos
         run: swift test
