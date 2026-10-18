@@ -11,6 +11,21 @@ do {
 }
 if options.showVersion { print("dossiary-scan-helper \(HelperVersion.string)"); exit(0) }
 if options.showHelp { print(CommandLineOptions.usage); exit(0) }
+if options.printMenu {
+    // Checks the translations: the menu as the app would show it, in the current language
+    // (try another with -AppleLanguages "(de)").
+    let entries = MenuModel.entries(scanners: [], port: options.port, fake: false, pairedCount: 0, startAtLogin: false,
+                                    networkServers: [NetworkServerEntry(id: "x", name: "scanner", status: .connected)],
+                                    texts: L)
+    for entry in entries {
+        switch entry {
+        case .title(let s), .info(let s): print(s)
+        case .action(let s, _, _, _): print(s)
+        case .separator: print("—")
+        }
+    }
+    exit(0)
+}
 
 Log.shared.echoToStderr = options.headless
 let runtime: HelperRuntime

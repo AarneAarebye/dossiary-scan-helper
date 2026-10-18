@@ -1,0 +1,11 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "NSLocalNetworkUsageDescription": {
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Dossiary Scan Helper looks for scanners on your network."}}
+      }
+    }
+  }
+}

@@ -10,10 +10,10 @@ final class NetworkScannerPanel: NSPanel {
     private let onPaired: () -> Void
     private let serverPopup = NSPopUpButton()
     private let addressField = NSTextField(string: "")
-    private let detailLabel = NSTextField(wrappingLabelWithString: "Looking for scan servers on the network…")
+    private let detailLabel = NSTextField(wrappingLabelWithString: L("Looking for scan servers on the network…"))
     private let codeField = NSTextField(string: "")
-    private let buttonPairButton = NSButton(title: "Pair with the Scan button", target: nil, action: nil)
-    private let codePairButton = NSButton(title: "Pair with code", target: nil, action: nil)
+    private let buttonPairButton = NSButton(title: L("Pair with the Scan button"), target: nil, action: nil)
+    private let codePairButton = NSButton(title: L("Pair with code"), target: nil, action: nil)
     private var probe: RemoteProbe?
     private var busy = false
 
@@ -22,13 +22,13 @@ final class NetworkScannerPanel: NSPanel {
         self.onPaired = onPaired
         super.init(contentRect: NSRect(x: 0, y: 0, width: 440, height: 300), styleMask: [.titled, .closable],
                    backing: .buffered, defer: false)
-        title = "Add network scanner"
+        title = L("Add network scanner")
         isReleasedWhenClosed = false
         level = .floating
         hidesOnDeactivate = false
-        addressField.placeholderString = "or an address, e.g. scanner.local"
-        codeField.placeholderString = "6-digit code"
-        let connect = NSButton(title: "Connect", target: self, action: #selector(connectChosen))
+        addressField.placeholderString = L("or an address, e.g. scanner.local")
+        codeField.placeholderString = L("6-digit code")
+        let connect = NSButton(title: L("Connect"), target: self, action: #selector(connectChosen))
         buttonPairButton.target = self; buttonPairButton.action = #selector(pairWithButton)
         codePairButton.target = self; codePairButton.action = #selector(pairWithCode)
         let codeRow = NSStackView(views: [codeField, codePairButton])
@@ -44,7 +44,7 @@ final class NetworkScannerPanel: NSPanel {
 
     func show() {
         probe = nil
-        detailLabel.stringValue = "Looking for scan servers on the network…"
+        detailLabel.stringValue = L("Looking for scan servers on the network…")
         setPairingEnabled(false)
         discovery.start()
         refreshPopup()
@@ -64,7 +64,7 @@ final class NetworkScannerPanel: NSPanel {
             serverPopup.addItem(withTitle: server.name)
             serverPopup.lastItem?.representedObject = "\(server.host):\(server.port)"
         }
-        if discovery.servers.isEmpty { serverPopup.addItem(withTitle: "No scan server found yet") }
+        if discovery.servers.isEmpty { serverPopup.addItem(withTitle: L("No scan server found yet")) }
     }
 
     private func setPairingEnabled(_ on: Bool) {
@@ -84,19 +84,19 @@ final class NetworkScannerPanel: NSPanel {
     }
 
     @objc private func connectChosen() {
-        guard let (host, port) = chosenAddress() else { detailLabel.stringValue = "Choose a scan server or type its address."; return }
-        detailLabel.stringValue = "Connecting to \(host)…"
+        guard let (host, port) = chosenAddress() else { detailLabel.stringValue = L("Choose a scan server or type its address."); return }
+        detailLabel.stringValue = L("Connecting to %@…", host)
         Task { @MainActor in
             do {
                 let found = try await pairing.probe(host: host, port: port)
                 probe = found
-                detailLabel.stringValue = "\(found.name) at \(host)\nFingerprint: \(RemoteFingerprint.display(found.fingerprint))\n"
-                    + "It should match “scanix500-server status” on the Pi. Then press the button below and, within "
-                    + "2 minutes, the Scan button on the iX500 — or enter a code from “sudo scanix500-server pair”."
+                detailLabel.stringValue = L("%1$@ at %2$@", found.name, host) + "\n"
+                    + L("Fingerprint: %@", RemoteFingerprint.display(found.fingerprint)) + "\n"
+                    + L("It should match “scanix500-server status” on the Pi. Then press the button below and, within 2 minutes, the Scan button on the iX500 — or enter a code from “sudo scanix500-server pair”.")
                 setPairingEnabled(true)
             } catch {
                 probe = nil
-                detailLabel.stringValue = error.localizedDescription
+                detailLabel.stringValue = L.errorText(error)
                 setPairingEnabled(false)
             }
         }
@@ -104,14 +104,14 @@ final class NetworkScannerPanel: NSPanel {
 
     @objc private func pairWithButton() {
         guard let probe else { return }
-        detailLabel.stringValue = "Press the Scan button on the iX500 now (2 minutes)…"
+        detailLabel.stringValue = L("Press the Scan button on the iX500 now (2 minutes)…")
         run { [pairing] in try await pairing.pairByButton(probe, client: Host.current().localizedName ?? "Mac") }
     }
 
     @objc private func pairWithCode() {
         guard let probe else { return }
         let code = codeField.stringValue.trimmingCharacters(in: .whitespaces)
-        detailLabel.stringValue = "Pairing…"
+        detailLabel.stringValue = L("Pairing…")
         run { [pairing] in try await pairing.pairByCode(probe, code: code, client: Host.current().localizedName ?? "Mac") }
     }
 
@@ -129,7 +129,7 @@ final class NetworkScannerPanel: NSPanel {
                 onPaired()
                 close()
             } catch {
-                detailLabel.stringValue = error.localizedDescription
+                detailLabel.stringValue = L.errorText(error)
             }
         }
     }

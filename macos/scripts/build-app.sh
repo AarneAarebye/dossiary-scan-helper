@@ -14,5 +14,7 @@ done
 lipo -create -output "$APP/Contents/MacOS/dossiary-scan-helper" "${BINS[@]}"
 sed "s/__VERSION__/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist"
+python3 scripts/strings_from_catalog.py --out "$APP/Contents/Resources" Localization/Localizable.xcstrings Localization/InfoPlist.xcstrings > /dev/null
+for f in "$APP"/Contents/Resources/*.lproj/*.strings; do plutil -lint -s "$f"; done
 lipo -archs "$APP/Contents/MacOS/dossiary-scan-helper"
 echo "Built $APP ($VERSION)"

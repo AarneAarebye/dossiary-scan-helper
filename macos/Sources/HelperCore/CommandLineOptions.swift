@@ -8,6 +8,7 @@ public struct CommandLineOptions: Equatable {
     public var port: UInt16 = 8766
     public var showVersion = false
     public var showHelp = false
+    public var printMenu = false
 
     public init() {}
 
@@ -17,6 +18,7 @@ public struct CommandLineOptions: Equatable {
                            pairing code 000000)
           --headless       no menu bar icon; log to the terminal too (CI and development)
           --port N         listen on 127.0.0.1:N instead of 8766
+          --print-menu     print the status menu in the current language and quit (checks translations)
           --version, --help
         """
 
@@ -29,6 +31,10 @@ public struct CommandLineOptions: Equatable {
             case "--headless": options.headless = true
             case "--version": options.showVersion = true
             case "-h", "--help": options.showHelp = true
+            case "--print-menu": options.printMenu = true
+            case "-AppleLanguages", "-AppleLocale":
+                // Cocoa's own arguments (e.g. -AppleLanguages "(hy)" to try a language); Foundation reads them.
+                guard rest.popFirst() != nil else { throw UsageError(message: "\(argument) needs a value.") }
             case "--port":
                 guard let value = rest.popFirst(), let port = Int(value), (1...65535).contains(port) else {
                     throw UsageError(message: "--port needs a number from 1 to 65535.")

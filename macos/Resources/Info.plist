@@ -4,6 +4,9 @@
 <dict>
     <key>CFBundleName</key><string>Dossiary Scan Helper</string>
     <key>CFBundleDisplayName</key><string>Dossiary Scan Helper</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array><string>en</string><string>de</string><string>es</string><string>fr</string><string>zh-Hans</string><string>zh-Hant</string><string>hy</string></array>
     <key>CFBundleIdentifier</key><string>com.aarneaarebye.dossiary-scan-helper</string>
     <key>CFBundleExecutable</key><string>dossiary-scan-helper</string>
     <key>CFBundlePackageType</key><string>APPL</string>

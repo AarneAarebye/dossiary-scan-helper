@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try runtime.start()
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Dossiary Scan Helper couldn't start"
+            alert.messageText = L("Dossiary Scan Helper couldn't start")
             alert.informativeText = "\(error)"
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
@@ -70,7 +70,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                         startAtLogin: LoginItem.isAvailable ? LoginItem.isEnabled : nil,
                                         networkServers: runtime.remote.map { remote in
                                             remote.servers.map { NetworkServerEntry(id: $0.id, name: $0.name, status: remote.statuses[$0.id]) }
-                                        })
+                                        },
+                                        texts: L)
         for entry in entries {
             switch entry {
             case .separator:
@@ -108,7 +109,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } catch {
                 Log.shared.write(error.localizedDescription)
                 let alert = NSAlert()
-                alert.messageText = "Couldn't forget the paired browsers"
+                alert.messageText = L("Couldn't forget the paired browsers")
                 alert.informativeText = error.localizedDescription
                 NSApp.activate(ignoringOtherApps: true)
                 alert.runModal()

@@ -75,5 +75,19 @@ class ConverterTests(unittest.TestCase):
                              ["in the catalog but not used: Unused", "used but not in the catalog: Pairing…"])
 
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOCALIZATION = os.path.join(HERE, "..", "Localization")
+SOURCES = os.path.join(HERE, "..", "Sources")
+
+
+class RealCatalogTests(unittest.TestCase):
+    def test_every_key_in_the_code_is_in_the_catalog_and_back(self):
+        self.assertEqual(sfc.source_problems(sfc.load(os.path.join(LOCALIZATION, "Localizable.xcstrings")), SOURCES), [])
+
+    def test_keys_are_plain(self):
+        c = sfc.load(os.path.join(LOCALIZATION, "Localizable.xcstrings"))
+        self.assertEqual([p for p in sfc.problems(c, langs=["en"])], [])
+
+
 if __name__ == "__main__":
     unittest.main()

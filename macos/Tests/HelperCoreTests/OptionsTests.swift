@@ -19,3 +19,14 @@ import Testing
         #expect(throws: UsageError.self) { try CommandLineOptions.parse(arguments) }
     }
 }
+
+@Test func printMenuFlag() throws {
+    #expect(try CommandLineOptions.parse(["--print-menu"]).printMenu)
+    #expect(try CommandLineOptions.parse([]).printMenu == false)
+}
+
+@Test func cocoaLanguageArgumentsAreSkipped() throws {
+    let options = try CommandLineOptions.parse(["--print-menu", "-AppleLanguages", "(hy)", "-AppleLocale", "hy_AM"])
+    #expect(options.printMenu)
+    #expect(throws: UsageError.self) { try CommandLineOptions.parse(["-AppleLanguages"]) }
+}

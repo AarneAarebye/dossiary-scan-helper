@@ -12,7 +12,7 @@ final class PairingPanel: NSPanel {
         self.pairing = pairing
         super.init(contentRect: NSRect(x: 0, y: 0, width: 340, height: 170),
                    styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        title = "Pair a browser"
+        title = L("Pair a browser")
         isReleasedWhenClosed = false
         level = .floating
         hidesOnDeactivate = false  // NSPanel hides on deactivate by default; the code must stay visible while typing it in the browser
@@ -40,9 +40,9 @@ final class PairingPanel: NSPanel {
         guard let code = pairing.activeCode else { finish(); return }
         codeLabel.stringValue = code
         if pairing.isFake {
-            detailLabel.stringValue = "Fake scanner mode: this code always works."
+            detailLabel.stringValue = L("Fake scanner mode: this code always works.")
         } else {
-            detailLabel.stringValue = "Type this code in Dossiary's scan dialog.\nIt works for \(pairing.secondsLeft ?? 0) more seconds."
+            detailLabel.stringValue = L("Type this code in Dossiary's scan dialog.") + "\n" + L("Seconds left: %lld", pairing.secondsLeft ?? 0)
         }
     }
 

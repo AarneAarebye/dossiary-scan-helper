@@ -1,0 +1,135 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "Dossiary Scan Helper — fake scanners": {
+      "localizations": {}
+    },
+    "Listening on %@": {
+      "localizations": {}
+    },
+    "No scanners found": {
+      "localizations": {}
+    },
+    "Pair a browser…": {
+      "localizations": {}
+    },
+    "Forget paired browsers (%lld)": {
+      "localizations": {}
+    },
+    "%1$@: %2$@": {
+      "localizations": {}
+    },
+    "Remove “%@”": {
+      "localizations": {}
+    },
+    "Add network scanner…": {
+      "localizations": {}
+    },
+    "Start at login": {
+      "localizations": {}
+    },
+    "Open log": {
+      "localizations": {}
+    },
+    "Quit Dossiary Scan Helper": {
+      "localizations": {}
+    },
+    "connected": {
+      "localizations": {}
+    },
+    "needs pairing again": {
+      "localizations": {}
+    },
+    "can't be reached": {
+      "localizations": {}
+    },
+    "certificate changed, remove and add it again": {
+      "localizations": {}
+    },
+    "checking…": {
+      "localizations": {}
+    },
+    "Dossiary Scan Helper couldn't start": {
+      "localizations": {}
+    },
+    "Couldn't forget the paired browsers": {
+      "localizations": {}
+    },
+    "Pair a browser": {
+      "localizations": {}
+    },
+    "Fake scanner mode: this code always works.": {
+      "localizations": {}
+    },
+    "Type this code in Dossiary's scan dialog.": {
+      "localizations": {}
+    },
+    "Seconds left: %lld": {
+      "localizations": {}
+    },
+    "Looking for scan servers on the network…": {
+      "localizations": {}
+    },
+    "Pair with the Scan button": {
+      "localizations": {}
+    },
+    "Pair with code": {
+      "localizations": {}
+    },
+    "Add network scanner": {
+      "localizations": {}
+    },
+    "or an address, e.g. scanner.local": {
+      "localizations": {}
+    },
+    "6-digit code": {
+      "localizations": {}
+    },
+    "Connect": {
+      "localizations": {}
+    },
+    "No scan server found yet": {
+      "localizations": {}
+    },
+    "Choose a scan server or type its address.": {
+      "localizations": {}
+    },
+    "Connecting to %@…": {
+      "localizations": {}
+    },
+    "%1$@ at %2$@": {
+      "localizations": {}
+    },
+    "Fingerprint: %@": {
+      "localizations": {}
+    },
+    "It should match “scanix500-server status” on the Pi. Then press the button below and, within 2 minutes, the Scan button on the iX500 — or enter a code from “sudo scanix500-server pair”.": {
+      "localizations": {}
+    },
+    "Press the Scan button on the iX500 now (2 minutes)…": {
+      "localizations": {}
+    },
+    "Pairing…": {
+      "localizations": {}
+    },
+    "That address doesn't answer like a scanix500 network scan server.": {
+      "localizations": {}
+    },
+    "Nobody pressed the Scan button within 2 minutes. Try again.": {
+      "localizations": {}
+    },
+    "Another computer asked to pair at the same time. Try again, one computer at a time.": {
+      "localizations": {}
+    },
+    "Too many pairing requests. Wait a minute, then try again.": {
+      "localizations": {}
+    },
+    "The network scanner can't be reached (%@).": {
+      "localizations": {}
+    },
+    "The network scanner presented a different certificate (%@) than when it was paired. If it was reinstalled, remove it in Dossiary Scan Helper and add it again.": {
+      "localizations": {}
+    }
+  }
+}
