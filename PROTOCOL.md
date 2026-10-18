@@ -256,6 +256,8 @@ Needs the token, like `/scan`.
 
 ## Network scan servers (scanix500-server)
 
+![Dossiary sends POST /scan to the helper on localhost; the helper forwards it over HTTPS (port 8767, pinned certificate) to scanix500-server on a Raspberry Pi, which drives the iX500 over USB. The PDF and its ocrJob come back the same way; Dossiary polls GET /ocr/remote.<server>.<job> at the helper, which forwards GET /ocr/<job> to the server.](docs/images/network-scan-path.svg)
+
 A helper may also list scanners of a **scanix500-server** on the local
 network (a Raspberry Pi with an iX500). Dossiary never talks to the server:
 the helper lists its scanners as `remote:<server>:<id>`, named
