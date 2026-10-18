@@ -30,8 +30,8 @@ public enum RemoteError: LocalizedError, Equatable, Sendable {
         case .unreachable(let detail):
             return "The network scanner can't be reached (\(detail))."
         case .certificateChanged(let seen):
-            return "The network scanner presented a different certificate (\(RemoteFingerprint.display(seen))) than when it "
-                + "was paired. If it was reinstalled, remove it in Dossiary Scan Helper and add it again."
+            return "The network scanner presented a different certificate (\(RemoteFingerprint.display(seen))) from the one used "
+                + "during pairing. If the server was reinstalled, remove the scanner from Dossiary Scan Helper and add it again."
         }
     }
 }

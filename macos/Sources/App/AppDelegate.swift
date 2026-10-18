@@ -109,7 +109,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } catch {
                 Log.shared.write(error.localizedDescription)
                 let alert = NSAlert()
-                alert.messageText = L("Couldn't forget the paired browsers")
+                alert.messageText = L("Couldn't forget paired browsers")
                 alert.informativeText = error.localizedDescription
                 NSApp.activate(ignoringOtherApps: true)
                 alert.runModal()

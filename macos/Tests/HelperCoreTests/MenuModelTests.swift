@@ -14,7 +14,7 @@ import Testing
         .action("Pair a browser…", .pair, checked: false, enabled: true),
         .action("Forget paired browsers (2)", .forget, checked: false, enabled: true),
         .separator,
-        .action("Start at login", .startAtLogin, checked: true, enabled: true),
+        .action("Open at Login", .startAtLogin, checked: true, enabled: true),
         .action("Open log", .openLog, checked: false, enabled: true),
         .separator,
         .action("Quit Dossiary Scan Helper", .quit, checked: false, enabled: true),
@@ -23,10 +23,10 @@ import Testing
 
 @Test func menuWithoutScannersOrBundle() {
     let entries = MenuModel.entries(scanners: [], port: 9000, fake: true, pairedCount: 0, startAtLogin: nil)
-    #expect(entries[0] == .title("Dossiary Scan Helper — fake scanners"))
+    #expect(entries[0] == .title("Dossiary Scan Helper — Fake Scanners"))
     #expect(entries.contains(.info("No scanners found")))
     #expect(entries.contains(.action("Forget paired browsers (0)", .forget, checked: false, enabled: false)))
-    #expect(entries.contains(.action("Start at login", .startAtLogin, checked: false, enabled: false)))
+    #expect(entries.contains(.action("Open at Login", .startAtLogin, checked: false, enabled: false)))
 }
 
 @Test func networkScannersSection() {
@@ -65,7 +65,7 @@ import Testing
 
 @Test func statusTextsTranslate() {
     let entry = NetworkServerEntry(id: "1", name: "attic", status: .certificateChanged)
-    #expect(entry.statusText(.english) == "certificate changed, remove and add it again")
-    #expect(entry.statusText(marked) == "‹certificate changed, remove and add it again›")
+    #expect(entry.statusText(.english) == "certificate changed — remove and add it again")
+    #expect(entry.statusText(marked) == "‹certificate changed — remove and add it again›")
     #expect(NetworkServerEntry(id: "1", name: "a", status: nil).statusText(.english) == "checking…")
 }

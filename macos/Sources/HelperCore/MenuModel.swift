@@ -14,7 +14,7 @@ public struct NetworkServerEntry: Equatable, Sendable {
         case .connected: return t("connected")
         case .needsPairing: return t("needs pairing again")
         case .unreachable: return t("can't be reached")
-        case .certificateChanged: return t("certificate changed, remove and add it again")
+        case .certificateChanged: return t("certificate changed — remove and add it again")
         case nil: return t("checking…")
         }
     }
@@ -33,7 +33,7 @@ public enum MenuModel {
                                startAtLogin: Bool?, networkServers: [NetworkServerEntry]? = nil,
                                texts t: Texts = .english) -> [MenuEntry] {
         var entries: [MenuEntry] = [
-            .title(fake ? t("Dossiary Scan Helper — fake scanners") : "Dossiary Scan Helper"),
+            .title(fake ? t("Dossiary Scan Helper — Fake Scanners") : "Dossiary Scan Helper"),
             .info(t("Listening on %@", "127.0.0.1:\(port)")),
             .separator,
         ]
@@ -53,7 +53,7 @@ public enum MenuModel {
         }
         entries += [
             .separator,
-            .action(t("Start at login"), .startAtLogin, checked: startAtLogin == true, enabled: startAtLogin != nil),
+            .action(t("Open at Login"), .startAtLogin, checked: startAtLogin == true, enabled: startAtLogin != nil),
             .action(t("Open log"), .openLog, checked: false, enabled: true),
             .separator,
             .action(t("Quit Dossiary Scan Helper"), .quit, checked: false, enabled: true),

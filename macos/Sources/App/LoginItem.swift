@@ -1,7 +1,7 @@
 import Foundation
 import ServiceManagement
 
-/// "Start at login" through SMAppService; only possible when running from the .app bundle.
+/// "Open at Login" through SMAppService; only possible when running from the .app bundle.
 enum LoginItem {
     static var isAvailable: Bool { Bundle.main.bundleURL.pathExtension == "app" }
     static var isEnabled: Bool { SMAppService.mainApp.status == .enabled }

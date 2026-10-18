@@ -2,7 +2,7 @@
   "sourceLanguage": "en",
   "version": "1.0",
   "strings": {
-    "Dossiary Scan Helper — fake scanners": {
+    "Dossiary Scan Helper — Fake Scanners": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -322,12 +322,12 @@
         }
       }
     },
-    "Start at login": {
+    "Open at Login": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bei der Anmeldung starten"
+            "value": "Bei der Anmeldung öffnen"
           }
         },
         "es": {
@@ -339,25 +339,25 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrir à la connexion"
+            "value": "Ouvrir à l'ouverture de session"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "登录时启动"
+            "value": "登录时打开"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "登錄時啓動"
+            "value": "登錄時打開"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Գործարկել մուտք գործելիս"
+            "value": "Բացել մուտք գործելիս"
           }
         }
       }
@@ -562,7 +562,7 @@
         }
       }
     },
-    "certificate changed, remove and add it again": {
+    "certificate changed — remove and add it again": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -682,7 +682,7 @@
         }
       }
     },
-    "Couldn't forget the paired browsers": {
+    "Couldn't forget paired browsers": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -922,7 +922,7 @@
         }
       }
     },
-    "Pair with the Scan button": {
+    "Pair using the Scan button": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -1042,7 +1042,7 @@
         }
       }
     },
-    "or an address, e.g. scanner.local": {
+    "or enter an address, such as scanner.local": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -1162,12 +1162,12 @@
         }
       }
     },
-    "No scan server found yet": {
+    "No scan servers found yet": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Noch kein Scan-Server gefunden"
+            "value": "Noch keine Scan-Server gefunden"
           }
         },
         "es": {
@@ -1202,7 +1202,7 @@
         }
       }
     },
-    "Choose a scan server or type its address.": {
+    "Choose a scan server or enter its address.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -1362,24 +1362,24 @@
         }
       }
     },
-    "It should match “scanix500-server status” on the Pi. Then press the button below and, within 2 minutes, the Scan button on the iX500 — or enter a code from “sudo scanix500-server pair”.": {
+    "It should match “scanix500-server status” on the Pi. Then click the button below and, within 2 minutes, press the Scan button on the iX500—or enter a code from “sudo scanix500-server pair”.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Er sollte mit „scanix500-server status“ auf dem Pi übereinstimmen. Drücke dann die Taste unten und innerhalb von 2 Minuten die Scan-Taste am iX500 — oder gib einen Code von „sudo scanix500-server pair“ ein."
+            "value": "Er sollte mit „scanix500-server status“ auf dem Pi übereinstimmen. Klicke dann unten auf die Schaltfläche und drücke innerhalb von 2 Minuten die Scan-Taste am iX500 – oder gib einen Code von „sudo scanix500-server pair“ ein."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Debe coincidir con «scanix500-server status» en la Pi. Luego pulse el botón de abajo y, en menos de 2 minutos, el botón Scan del iX500, o escriba un código de «sudo scanix500-server pair»."
+            "value": "Debe coincidir con «scanix500-server status» en la Pi. Luego haga clic en el botón de abajo y, en menos de 2 minutos, pulse el botón Scan del iX500, o escriba un código de «sudo scanix500-server pair»."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elle doit correspondre à « scanix500-server status » sur le Pi. Appuyez ensuite sur le bouton ci-dessous puis, dans les 2 minutes, sur le bouton Scan de l'iX500 — ou saisissez un code obtenu avec « sudo scanix500-server pair »."
+            "value": "Elle doit correspondre à « scanix500-server status » sur le Pi. Cliquez ensuite sur le bouton ci-dessous puis, dans les 2 minutes, appuyez sur le bouton Scan de l'iX500 — ou saisissez un code obtenu avec « sudo scanix500-server pair »."
           }
         },
         "zh-Hans": {
@@ -1397,29 +1397,29 @@
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Այն պետք է համընկնի Pi-ի վրա «scanix500-server status»-ի ցուցադրածի հետ։ Ապա սեղմեք ներքևի կոճակը և 2 րոպեի ընթացքում՝ iX500-ի Scan կոճակը, կամ մուտքագրեք «sudo scanix500-server pair»-ի տված կոդը։"
+            "value": "Այն պետք է համընկնի Pi-ի վրա «scanix500-server status»-ի ցուցադրածի հետ։ Ապա սեղմեք ներքևի կոճակը և 2 րոպեի ընթացքում սեղմեք iX500-ի Scan կոճակը, կամ մուտքագրեք «sudo scanix500-server pair»-ի տված կոդը։"
           }
         }
       }
     },
-    "Press the Scan button on the iX500 now (2 minutes)…": {
+    "Press the Scan button on the iX500 now (within 2 minutes)…": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drücke jetzt die Scan-Taste am iX500 (2 Minuten)…"
+            "value": "Drücke jetzt die Scan-Taste am iX500 (innerhalb von 2 Minuten)…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pulse ahora el botón Scan del iX500 (2 minutos)…"
+            "value": "Pulse ahora el botón Scan del iX500 (en menos de 2 minutos)…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appuyez maintenant sur le bouton Scan de l'iX500 (2 minutes)…"
+            "value": "Appuyez maintenant sur le bouton Scan de l'iX500 (dans les 2 minutes)…"
           }
         },
         "zh-Hans": {
@@ -1437,7 +1437,7 @@
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Հիմա սեղմեք iX500-ի Scan կոճակը (2 րոպե)…"
+            "value": "Հիմա սեղմեք iX500-ի Scan կոճակը (2 րոպեի ընթացքում)…"
           }
         }
       }
@@ -1482,87 +1482,87 @@
         }
       }
     },
-    "That address doesn't answer like a scanix500 network scan server.": {
+    "That address isn't a scanix500 network scan server.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Adresse antwortet nicht wie ein scanix500-Netzwerk-Scan-Server."
+            "value": "Diese Adresse ist kein scanix500-Netzwerk-Scan-Server."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esa dirección no responde como un servidor de escaneo en red de scanix500."
+            "value": "Esa dirección no es un servidor de escaneo en red de scanix500."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cette adresse ne répond pas comme un serveur de numérisation réseau scanix500."
+            "value": "Cette adresse n'est pas un serveur de numérisation réseau scanix500."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "该地址的响应不像 scanix500 网络扫描服务器。"
+            "value": "该地址不是 scanix500 网络扫描服务器。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "該地址的響應不像 scanix500 網絡掃描服務器。"
+            "value": "該地址不是 scanix500 網絡掃描服務器。"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Այս հասցեն չի պատասխանում scanix500 ցանցային սկանավորման սերվերի պես։"
+            "value": "Այս հասցեն scanix500 ցանցային սկանավորման սերվեր չէ։"
           }
         }
       }
     },
-    "Nobody pressed the Scan button within 2 minutes. Try again.": {
+    "The Scan button wasn't pressed within 2 minutes. Try again.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Niemand hat innerhalb von 2 Minuten die Scan-Taste gedrückt. Versuch es noch einmal."
+            "value": "Die Scan-Taste wurde nicht innerhalb von 2 Minuten gedrückt. Versuch es noch einmal."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nadie pulsó el botón Scan en 2 minutos. Inténtelo de nuevo."
+            "value": "No se pulsó el botón Scan en 2 minutos. Inténtelo de nuevo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Personne n'a appuyé sur le bouton Scan dans les 2 minutes. Réessayez."
+            "value": "Le bouton Scan n'a pas été pressé dans les 2 minutes. Réessayez."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "2 分钟内无人按下扫描按钮。请重试。"
+            "value": "2 分钟内未按下扫描按钮。请重试。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "2 分鐘內無人按下掃描按鈕。請重試。"
+            "value": "2 分鐘內未按下掃描按鈕。請重試。"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "2 րոպեի ընթացքում ոչ ոք չսեղմեց Scan կոճակը։ Փորձեք կրկին։"
+            "value": "Scan կոճակը չի սեղմվել 2 րոպեի ընթացքում։ Փորձեք կրկին։"
           }
         }
       }
     },
-    "Another computer asked to pair at the same time. Try again, one computer at a time.": {
+    "Another computer tried to pair at the same time. Try again, one computer at a time.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -1682,7 +1682,7 @@
         }
       }
     },
-    "The network scanner presented a different certificate (%@) than when it was paired. If it was reinstalled, remove it in Dossiary Scan Helper and add it again.": {
+    "The network scanner presented a different certificate (%@) from the one used during pairing. If the server was reinstalled, remove the scanner from Dossiary Scan Helper and add it again.": {
       "localizations": {
         "de": {
           "stringUnit": {

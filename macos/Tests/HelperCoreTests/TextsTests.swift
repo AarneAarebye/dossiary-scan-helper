@@ -26,7 +26,7 @@ let marked = Texts { "‹" + $0 + "›" }
 }
 
 @Test func errorTextIsTranslated() {
-    #expect(marked.errorText(PairingFailure.timedOut) == "‹Nobody pressed the Scan button within 2 minutes. Try again.›")
+    #expect(marked.errorText(PairingFailure.timedOut) == "‹The Scan button wasn't pressed within 2 minutes. Try again.›")
     #expect(marked.errorText(RemoteError.unreachable("timed out")) == "‹The network scanner can't be reached (timed out).›")
     // A refusal is the server's own message, shown as it came.
     #expect(marked.errorText(PairingFailure.refused("Wrong code.")) == "Wrong code.")

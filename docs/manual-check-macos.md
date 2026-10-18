@@ -17,6 +17,6 @@ Use the signed, notarized app from `macos/dist/`, a real scanner, and the curren
 - [ ] Quit the helper while a scan is still being made searchable, start it again: it finishes.
 - [ ] Empty feeder: Dossiary says "No paper in the feeder." and nothing is added.
 - [ ] Scanner opened in Image Capture during a scan request: Dossiary shows the "couldn't connect" message.
-- [ ] Start at login: after logging out and in, the icon is back.
+- [ ] Open at Login: after logging out and in, the icon is back.
 - [ ] Open log: the log shows the scans and no codes, tokens or page data.
 - [ ] Languages: set Dossiary Scan Helper to German in System Settings › General › Language & Region › Applications, reopen it: the menu, "Pair a browser…" and "Add network scanner…" are German. Do the same with Armenian (add Հայերեն under Preferred Languages first if macOS doesn't offer it for the app). Set it back.

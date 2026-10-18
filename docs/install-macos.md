@@ -9,7 +9,7 @@ Needs macOS 14 (Sonoma) or later.
    [releases page](https://github.com/AarneAarebye/dossiary-scan-helper/releases).
 2. Open the zip and drag **Dossiary Scan Helper** into your Applications folder.
 3. Open it. A scanner icon appears in the menu bar (it has no window and no Dock icon).
-4. In the icon's menu, choose **Start at login** so it's there whenever you scan.
+4. In the icon's menu, choose **Open at Login** so it's there whenever you scan.
 
 ## Connect Dossiary
 
@@ -31,7 +31,7 @@ can be shared by every Mac in the house:
    example `scanner.local`).
 2. Click **Connect**. The helper shows the server's certificate fingerprint;
    it should match what `scanix500-server status` prints on the Pi.
-3. Click **Pair with the Scan button** and, within 2 minutes, press the Scan
+3. Click **Pair using the Scan button** and, within 2 minutes, press the Scan
    button on the iX500. (Or run `sudo scanix500-server pair` on the Pi and
    enter its code.)
 
