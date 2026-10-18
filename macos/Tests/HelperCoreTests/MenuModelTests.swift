@@ -40,3 +40,32 @@ import Testing
     let fakeMode = MenuModel.entries(scanners: [], port: 8766, fake: true, pairedCount: 0, startAtLogin: nil)
     #expect(!fakeMode.contains(.action("Add network scanner…", .addNetworkScanner, checked: false, enabled: true)))
 }
+
+@Test func everyVisibleMenuTextGoesThroughTexts() {
+    let entries = MenuModel.entries(scanners: Array(FakeScanners.infos.prefix(1)), port: 8766, fake: true, pairedCount: 1,
+                                    startAtLogin: true,
+                                    networkServers: [NetworkServerEntry(id: "1", name: "attic", status: .unreachable)],
+                                    texts: marked)
+    var texts: [String] = []
+    for entry in entries {
+        switch entry {
+        case .title(let s), .info(let s): texts.append(s)
+        case .action(let s, _, _, _): texts.append(s)
+        case .separator: break
+        }
+    }
+    let scannerNames: Set = ["Fake Flatbed"]
+    for text in texts where !scannerNames.contains(text) {
+        #expect(text.hasPrefix("‹"), "not translated: \(text)")
+    }
+    #expect(texts.contains("‹Listening on 127.0.0.1:8766›"))
+    // The server line is t("%1$@: %2$@", name, statusText(t)): the status is looked up too.
+    #expect(texts.contains("‹attic: ‹can't be reached››"))
+}
+
+@Test func statusTextsTranslate() {
+    let entry = NetworkServerEntry(id: "1", name: "attic", status: .certificateChanged)
+    #expect(entry.statusText(.english) == "certificate changed, remove and add it again")
+    #expect(entry.statusText(marked) == "‹certificate changed, remove and add it again›")
+    #expect(NetworkServerEntry(id: "1", name: "a", status: nil).statusText(.english) == "checking…")
+}
