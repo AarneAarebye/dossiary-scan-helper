@@ -88,6 +88,10 @@ class RealCatalogTests(unittest.TestCase):
         c = sfc.load(os.path.join(LOCALIZATION, "Localizable.xcstrings"))
         self.assertEqual([p for p in sfc.problems(c, langs=["en"])], [])
 
+    def test_every_language_is_complete(self):
+        for name in ("Localizable.xcstrings", "InfoPlist.xcstrings"):
+            self.assertEqual(sfc.problems(sfc.load(os.path.join(LOCALIZATION, name))), [], name)
+
 
 if __name__ == "__main__":
     unittest.main()

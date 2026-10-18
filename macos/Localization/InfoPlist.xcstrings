@@ -4,7 +4,48 @@
   "strings": {
     "NSLocalNetworkUsageDescription": {
       "localizations": {
-        "en": {"stringUnit": {"state": "translated", "value": "Dossiary Scan Helper looks for scanners on your network."}}
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper looks for scanners on your network."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper sucht in deinem Netzwerk nach Scannern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper busca escáneres en su red."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper recherche des scanners sur votre réseau."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper 会在您的网络上查找扫描仪。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper 會在您的網絡上查找掃描儀。"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper-ը Ձեր ցանցում սկաներներ է փնտրում։"
+          }
+        }
       }
     }
   }
