@@ -52,6 +52,13 @@ time, macOS asks to allow Dossiary Scan Helper on the local network.
   Dossiary Scan Helper.
 - **Open log** in the menu shows what the helper saw.
 
+## Language
+
+The helper follows your Mac's preferred languages (System Settings › General › Language & Region). It
+speaks English, German, Spanish, French, Chinese (Simplified and Traditional) and Armenian. To use one
+of them for the helper alone, add Dossiary Scan Helper under "Applications" on that page and choose the
+language; quit and reopen the helper.
+
 ## Files it keeps
 
 - `~/Library/Application Support/dossiary-scan-helper/ocr-jobs/` holds scans waiting to be made

@@ -20,6 +20,18 @@ Needs macOS 14 or later and the Command Line Tools (`xcode-select --install`); X
 `--headless` runs without the menu bar icon and logs to the terminal too. The log file is
 `~/Library/Logs/dossiary-scan-helper/helper.log`.
 
+## Languages
+
+The menu and panels are in English, German, Spanish, French, Chinese (Simplified and Traditional) and
+Armenian. All texts live in `Localization/Localizable.xcstrings` (and the network-permission prompt in
+`Localization/InfoPlist.xcstrings`); the English text is the key. Xcode isn't needed: `scripts/build-app.sh`
+turns the catalogs into `<lang>.lproj` files with `scripts/strings_from_catalog.py`. To change a text,
+edit the catalog (by hand or in Xcode) and keep every language: `python3 -m unittest discover -s
+scripts -p 'test_*.py'` fails on a missing translation, a changed placeholder, or a key the code uses
+that isn't in the catalog. After a build, `scripts/check-localized-app.sh` prints the menu in four
+languages; `dossiary-scan-helper --print-menu -AppleLanguages "(fr)"` shows any other. Messages the
+helper sends to Dossiary stay English.
+
 ## Release
 
 1. Bump `HelperVersion.string` in `Sources/HelperCore/Version.swift`.
