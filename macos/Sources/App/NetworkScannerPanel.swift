@@ -92,7 +92,7 @@ final class NetworkScannerPanel: NSPanel {
                 probe = found
                 detailLabel.stringValue = L("%1$@ at %2$@", found.name, host) + "\n"
                     + L("Fingerprint: %@", RemoteFingerprint.display(found.fingerprint)) + "\n"
-                    + L("It should match “scanix500-server status” on the Pi. Then click the button below and, within 2 minutes, press the Scan button on the iX500—or enter a code from “sudo scanix500-server pair”.")
+                    + L("The fingerprint should match the output of “scanix500-server status” on the Pi. Then click the button below and, within 2 minutes, press the Scan button on the iX500—or enter a code from “sudo scanix500-server pair”.")
                 setPairingEnabled(true)
             } catch {
                 probe = nil
@@ -104,7 +104,7 @@ final class NetworkScannerPanel: NSPanel {
 
     @objc private func pairWithButton() {
         guard let probe else { return }
-        detailLabel.stringValue = L("Press the Scan button on the iX500 now (within 2 minutes)…")
+        detailLabel.stringValue = L("Press the Scan button on the iX500 within 2 minutes…")
         run { [pairing] in try await pairing.pairByButton(probe, client: Host.current().localizedName ?? "Mac") }
     }
 

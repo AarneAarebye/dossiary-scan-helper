@@ -17,7 +17,7 @@ public enum PairingFailure: LocalizedError, Equatable, Sendable {
         switch self {
         case .notAScanServer: return "That address isn't a scanix500 network scan server."
         case .timedOut: return "The Scan button wasn't pressed within 2 minutes. Try again."
-        case .conflict: return "Another computer tried to pair at the same time. Try again, one computer at a time."
+        case .conflict: return "Another computer tried to pair at the same time. Try again with only one computer."
         case .tooMany: return "Too many pairing requests. Wait a minute, then try again."
         case .refused(let message): return message
         }

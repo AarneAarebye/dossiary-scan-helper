@@ -40,7 +40,7 @@ final class PairingPanel: NSPanel {
         guard let code = pairing.activeCode else { finish(); return }
         codeLabel.stringValue = code
         if pairing.isFake {
-            detailLabel.stringValue = L("Fake scanner mode: this code always works.")
+            detailLabel.stringValue = L("Fake scanner mode: This code always works.")
         } else {
             detailLabel.stringValue = L("Type this code in Dossiary's scan dialog.") + "\n" + L("Seconds left: %lld", pairing.secondsLeft ?? 0)
         }

@@ -762,7 +762,7 @@
         }
       }
     },
-    "Fake scanner mode: this code always works.": {
+    "Fake scanner mode: This code always works.": {
       "localizations": {
         "de": {
           "stringUnit": {
@@ -1362,82 +1362,82 @@
         }
       }
     },
-    "It should match “scanix500-server status” on the Pi. Then click the button below and, within 2 minutes, press the Scan button on the iX500—or enter a code from “sudo scanix500-server pair”.": {
+    "The fingerprint should match the output of “scanix500-server status” on the Pi. Then click the button below and, within 2 minutes, press the Scan button on the iX500—or enter a code from “sudo scanix500-server pair”.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Er sollte mit „scanix500-server status“ auf dem Pi übereinstimmen. Klicke dann unten auf die Schaltfläche und drücke innerhalb von 2 Minuten die Scan-Taste am iX500 – oder gib einen Code von „sudo scanix500-server pair“ ein."
+            "value": "Der Fingerabdruck sollte mit der Ausgabe von „scanix500-server status“ auf dem Pi übereinstimmen. Klicke dann unten auf die Schaltfläche und drücke innerhalb von 2 Minuten die Scan-Taste am iX500 – oder gib einen Code von „sudo scanix500-server pair“ ein."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Debe coincidir con «scanix500-server status» en la Pi. Luego haga clic en el botón de abajo y, en menos de 2 minutos, pulse el botón Scan del iX500, o escriba un código de «sudo scanix500-server pair»."
+            "value": "La huella digital debe coincidir con la salida de «scanix500-server status» en la Pi. Luego haga clic en el botón de abajo y, en menos de 2 minutos, pulse el botón Scan del iX500, o escriba un código de «sudo scanix500-server pair»."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elle doit correspondre à « scanix500-server status » sur le Pi. Cliquez ensuite sur le bouton ci-dessous puis, dans les 2 minutes, appuyez sur le bouton Scan de l'iX500 — ou saisissez un code obtenu avec « sudo scanix500-server pair »."
+            "value": "L'empreinte doit correspondre à la sortie de « scanix500-server status » sur le Pi. Cliquez ensuite sur le bouton ci-dessous puis, dans les 2 minutes, appuyez sur le bouton Scan de l'iX500 — ou saisissez un code obtenu avec « sudo scanix500-server pair »."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "它应与树莓派上“scanix500-server status”显示的一致。然后点击下方按钮，并在 2 分钟内按下 iX500 上的扫描按钮——或输入“sudo scanix500-server pair”给出的代码。"
+            "value": "指纹应与树莓派上“scanix500-server status”的输出一致。然后点击下方按钮，并在 2 分钟内按下 iX500 上的扫描按钮——或输入“sudo scanix500-server pair”给出的代码。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "它應與樹莓派上“scanix500-server status”顯示的一致。然後點擊下方按鈕，並在 2 分鐘內按下 iX500 上的掃描按鈕——或輸入“sudo scanix500-server pair”給出的代碼。"
+            "value": "指紋應與樹莓派上“scanix500-server status”的輸出一致。然後點擊下方按鈕，並在 2 分鐘內按下 iX500 上的掃描按鈕——或輸入“sudo scanix500-server pair”給出的代碼。"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Այն պետք է համընկնի Pi-ի վրա «scanix500-server status»-ի ցուցադրածի հետ։ Ապա սեղմեք ներքևի կոճակը և 2 րոպեի ընթացքում սեղմեք iX500-ի Scan կոճակը, կամ մուտքագրեք «sudo scanix500-server pair»-ի տված կոդը։"
+            "value": "Մատնահետքը պետք է համընկնի Pi-ի վրա «scanix500-server status»-ի ելքի հետ։ Ապա սեղմեք ներքևի կոճակը և 2 րոպեի ընթացքում սեղմեք iX500-ի Scan կոճակը, կամ մուտքագրեք «sudo scanix500-server pair»-ի տված կոդը։"
           }
         }
       }
     },
-    "Press the Scan button on the iX500 now (within 2 minutes)…": {
+    "Press the Scan button on the iX500 within 2 minutes…": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drücke jetzt die Scan-Taste am iX500 (innerhalb von 2 Minuten)…"
+            "value": "Drücke innerhalb von 2 Minuten die Scan-Taste am iX500…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pulse ahora el botón Scan del iX500 (en menos de 2 minutos)…"
+            "value": "Pulse el botón Scan del iX500 en menos de 2 minutos…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Appuyez maintenant sur le bouton Scan de l'iX500 (dans les 2 minutes)…"
+            "value": "Appuyez sur le bouton Scan de l'iX500 dans les 2 minutes…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请现在按下 iX500 上的扫描按钮（2 分钟内）…"
+            "value": "请在 2 分钟内按下 iX500 上的扫描按钮…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請現在按下 iX500 上的掃描按鈕（2 分鐘內）…"
+            "value": "請在 2 分鐘內按下 iX500 上的掃描按鈕…"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Հիմա սեղմեք iX500-ի Scan կոճակը (2 րոպեի ընթացքում)…"
+            "value": "2 րոպեի ընթացքում սեղմեք iX500-ի Scan կոճակը…"
           }
         }
       }
@@ -1562,42 +1562,42 @@
         }
       }
     },
-    "Another computer tried to pair at the same time. Try again, one computer at a time.": {
+    "Another computer tried to pair at the same time. Try again with only one computer.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein anderer Computer wollte gleichzeitig koppeln. Versuch es noch einmal, ein Computer nach dem anderen."
+            "value": "Ein anderer Computer wollte gleichzeitig koppeln. Versuch es noch einmal mit nur einem Computer."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otro ordenador pidió emparejarse al mismo tiempo. Inténtelo de nuevo, un ordenador cada vez."
+            "value": "Otro ordenador pidió emparejarse al mismo tiempo. Inténtelo de nuevo con un solo ordenador."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un autre ordinateur a demandé l'association en même temps. Réessayez, un ordinateur à la fois."
+            "value": "Un autre ordinateur a demandé l'association en même temps. Réessayez avec un seul ordinateur."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "另一台电脑同时请求配对。请重试，一次只配对一台电脑。"
+            "value": "另一台电脑同时请求配对。请只用一台电脑重试。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "另一臺電腦同時請求配對。請重試，一次只配對一臺電腦。"
+            "value": "另一臺電腦同時請求配對。請只用一臺電腦重試。"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մեկ այլ համակարգիչ միաժամանակ զուգակցում խնդրեց։ Փորձեք կրկին՝ մեկ համակարգիչ մեկ անգամ։"
+            "value": "Մեկ այլ համակարգիչ միաժամանակ զուգակցում խնդրեց։ Փորձեք կրկին միայն մեկ համակարգչով։"
           }
         }
       }

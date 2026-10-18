@@ -26,7 +26,7 @@ public struct Texts: Sendable {
         switch error {
         case PairingFailure.notAScanServer: return t("That address isn't a scanix500 network scan server.")
         case PairingFailure.timedOut: return t("The Scan button wasn't pressed within 2 minutes. Try again.")
-        case PairingFailure.conflict: return t("Another computer tried to pair at the same time. Try again, one computer at a time.")
+        case PairingFailure.conflict: return t("Another computer tried to pair at the same time. Try again with only one computer.")
         case PairingFailure.tooMany: return t("Too many pairing requests. Wait a minute, then try again.")
         case PairingFailure.refused(let message): return message
         case RemoteError.unreachable(let detail): return t("The network scanner can't be reached (%@).", detail)
