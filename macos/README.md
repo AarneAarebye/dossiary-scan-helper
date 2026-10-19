@@ -40,6 +40,10 @@ helper sends to Dossiary stay English.
    `dist/DossiaryScanHelper-<version>-macos.zip`.
 4. Run the [hardware checklist](../docs/manual-check-macos.md) with the signed app.
 5. Tag `macos-v<version>` and attach the zip to a GitHub release.
+6. `scripts/install-app.sh` installs the app into `/Applications/Dossiary`, starts it, and
+   removes the copy in `build/`. "Open at Login" registers the app by its bundle id, and
+   macOS opens whichever copy it knows under that id -- with a second copy left in
+   `build/`, the login item pointed there instead of the installed app.
 
 ### Signing setup (once per Mac)
 
