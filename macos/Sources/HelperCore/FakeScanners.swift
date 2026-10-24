@@ -15,10 +15,12 @@ public enum FakeScanners {
 
     private static func make(_ id: String, _ name: String, _ sources: [Source], duplex: Bool = false,
                              extras: [String] = [], sheets: [String] = [], delay: TimeInterval = 0,
-                             offline: Bool = false, jamAfter: Int? = nil, empty: Bool = false, ocr: [String] = []) -> FakeScanner {
+                             offline: Bool = false, jamAfter: Int? = nil, empty: Bool = false, ocr: [String] = [],
+                             resolutions: [Int] = [150, 300, 600], formats: [String] = ["pdf"],
+                             areas: [String] = []) -> FakeScanner {
         FakeScanner(info: ScannerInfo(id: id, name: name, sources: sources, duplex: duplex,
-                                      colorModes: [.color, .gray, .bw], resolutions: [150, 300, 600], extras: extras,
-                                      ocrLanguages: ocr),
+                                      colorModes: [.color, .gray, .bw], resolutions: resolutions, extras: extras,
+                                      ocrLanguages: ocr, formats: formats, areas: areas),
                     sheets: sheets, delay: delay, offline: offline, jamAfter: jamAfter, empty: empty)
     }
 
@@ -32,6 +34,8 @@ public enum FakeScanners {
         make("fake:offline", "Fake Offline Scanner", [.flatbed], offline: true),
         make("fake:empty", "Fake Empty Feeder", [.feeder], empty: true),
         make("fake:ocr", "Fake OCR Scanner", [.flatbed], ocr: ["deu", "eng"]),
+        make("fake:photo", "Fake Photo Scanner", [.flatbed], resolutions: [150, 300, 600, 1200],
+             formats: ["pdf", "jpeg", "png"], areas: ["a4", "10x15"]),
     ]
 
     public static var infos: [ScannerInfo] { all.map(\.info) }

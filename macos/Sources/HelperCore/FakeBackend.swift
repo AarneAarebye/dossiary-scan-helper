@@ -17,6 +17,10 @@ public final class FakeBackend: ScannerBackend, @unchecked Sendable {
         }
         if fake.delay > 0 { try? await Task.sleep(nanoseconds: UInt64(fake.delay * 1_000_000_000)) }
         if fake.empty { throw ProtocolError(500, FakeScanners.emptyFeederMessage) }
+        if settings.format != "pdf" {
+            return ScanDocuments(documents: [], partialMessage: nil,
+                                 image: ImageFile(data: try FakePages.image(settings.format), format: settings.format))
+        }
         let plan = FakeBackend.plan(fake, settings)
         let documents = try plan.documents.map { try $0.map(FakePages.render) }
         guard !fake.info.ocrLanguages.isEmpty else {

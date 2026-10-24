@@ -54,6 +54,18 @@ public enum FakePages {
     static let width = 413   // 8.27 in × 50 dpi
     static let height = 585  // 11.69 in × 50 dpi
 
+    /// A tiny valid 8 x 8 gray JPEG or PNG: the fake photo scanner's scan.
+    public static func image(_ format: String) throws -> Data {
+        guard let context = CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else {
+            throw ProtocolError(500, "Couldn't draw an image.")
+        }
+        context.setFillColor(CGColor(gray: 0.8, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        guard let image = context.makeImage() else { throw ProtocolError(500, "Couldn't draw an image.") }
+        return format == "png" ? ImageEncoding.png(image) : try ImageEncoding.jpeg(image)
+    }
+
     public static func render(_ text: String) throws -> PageImage {
         guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                                       space: CGColorSpaceCreateDeviceRGB(),

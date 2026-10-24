@@ -97,7 +97,7 @@ private func object(_ response: HTTPResponse) -> [String: Any] {
 @Test func scannersAndScan() async throws {
     let (router, token) = makeRouter()
     let list = object(await router.handle(req("GET", "/scanners", token: token)))["scanners"] as? [[String: Any]]
-    #expect(list?.count == 8)
+    #expect(list?.count == 9)
     let scan = await router.handle(req("POST", "/scan", origin: "http://localhost:8000", token: token,
                                        body: #"{"scanner":"fake:flatbed"}"#))
     #expect(scan.status == 200)
