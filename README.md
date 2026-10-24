@@ -12,7 +12,7 @@ scanning and hands the result to Dossiary over a local connection.
 | Path | What it is |
 |---|---|
 | [`PROTOCOL.md`](PROTOCOL.md) | The bridge protocol every helper implements. |
-| `reference/` | A minimal Python helper with fake scanners, for developing Dossiary and testing the suite. Includes `fake:ocr`, which makes searchable PDFs in the background (`GET /ocr/<job>`). Standard library only. |
+| `reference/` | A minimal Python helper with fake scanners, for developing Dossiary and testing the suite. Includes `fake:ocr`, which makes searchable PDFs in the background (`GET /ocr/<job>`), and `fake:photo`, which scans to JPEG or PNG over a chosen scan area (optional in the protocol; the macOS helper doesn't offer it yet). Standard library only. |
 | `conformance/` | Tests any running helper over HTTP against `PROTOCOL.md`. |
 | `macos/` | The macOS helper: a Swift menu bar app using ImageCaptureCore, which can also use an iX500 on a Raspberry Pi running scanix500-server ("Add network scanner…"). Its menu and panels are in seven languages (English, German, Spanish, French, Chinese Simplified and Traditional, Armenian). See [macos/README.md](macos/README.md). |
 
