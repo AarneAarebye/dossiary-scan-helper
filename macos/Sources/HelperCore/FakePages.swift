@@ -16,6 +16,36 @@ public enum ImageEncoding {
         guard CGImageDestinationFinalize(destination) else { throw ProtocolError(500, "Couldn't encode a page.") }
         return output as Data
     }
+
+    public static func png(_ image: CGImage) -> Data {
+        let output = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(output as CFMutableData, UTType.png.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, image, nil)
+        CGImageDestinationFinalize(destination)
+        return output as Data
+    }
+
+    /// The scanned file as `format` ("jpeg" or "png") with the dpi set: returned unchanged when it already is
+    /// that type and carries that dpi, re-encoded with ImageIO otherwise (some drivers ignore the requested file type).
+    public static func normalized(_ data: Data, as format: String, dpi: Int) throws -> Data {
+        let type = format == "png" ? UTType.png : UTType.jpeg
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            throw ProtocolError(500, "Couldn't read the scanned image.")
+        }
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let hasRightDPI = abs((properties?[kCGImagePropertyDPIWidth] as? Double ?? 0) - Double(dpi)) < 1
+        if (CGImageSourceGetType(source) as String?) == type.identifier && hasRightDPI { return data }
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(output as CFMutableData, type.identifier as CFString, 1, nil) else {
+            throw ProtocolError(500, "Couldn't encode the scanned image.")
+        }
+        var options: [CFString: Any] = [kCGImagePropertyDPIWidth: dpi, kCGImagePropertyDPIHeight: dpi]
+        if format != "png" { options[kCGImageDestinationLossyCompressionQuality] = 0.92 }
+        CGImageDestinationAddImage(destination, image, options as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { throw ProtocolError(500, "Couldn't encode the scanned image.") }
+        return output as Data
+    }
 }
 
 /// The fake scanners' pages: an A4 page at a low resolution with one line of text ("" = blank).

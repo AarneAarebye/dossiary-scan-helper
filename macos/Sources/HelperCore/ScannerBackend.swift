@@ -7,6 +7,13 @@ public struct PageImage: Sendable {
     public init(data: Data, dpi: Int) { self.data = data; self.dpi = dpi }
 }
 
+/// A finished image scan: the file's bytes as scanned, `format` being "jpeg" or "png".
+public struct ImageFile: Sendable {
+    public let data: Data
+    public let format: String
+    public init(data: Data, format: String) { self.data = data; self.format = format }
+}
+
 /// A scan's result: one page list per PDF. A non-nil `partialMessage` means `ok: false, partial: true`.
 public struct ScanDocuments: Sendable {
     public var documents: [[PageImage]]
@@ -15,8 +22,12 @@ public struct ScanDocuments: Sendable {
     public var pdfs: [Data]?
     /// fake:ocr with `ocr: true` only: each document's page texts, for FakeOcrEngine.
     public var fakeTexts: [[String]]?
-    public init(documents: [[PageImage]], partialMessage: String?, pdfs: [Data]? = nil, fakeTexts: [[String]]? = nil) {
+    /// An image scan (one JPEG or PNG file instead of pages for a PDF).
+    public var image: ImageFile?
+    public init(documents: [[PageImage]], partialMessage: String?, pdfs: [Data]? = nil, fakeTexts: [[String]]? = nil,
+                image: ImageFile? = nil) {
         self.documents = documents; self.partialMessage = partialMessage; self.pdfs = pdfs; self.fakeTexts = fakeTexts
+        self.image = image
     }
 }
 
