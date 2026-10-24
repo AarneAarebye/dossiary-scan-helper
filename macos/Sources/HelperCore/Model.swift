@@ -14,12 +14,20 @@ public struct ScannerInfo: Equatable, Sendable {
     public var extras: [String]
     /// OCR codes this scanner's helper can recognize; empty means no OCR.
     public var ocrLanguages: [String]
+    /// What a scan can come back as; `["pdf"]` unless the scanner also makes images.
+    public var formats: [String]
+    /// The scan areas it offers, by id (`full` first for a scanner that scans whatever glass it has); none for a feeder.
+    public var areas: [String]
+    /// The size of `full` for a local flatbed: known to this helper, never sent in the protocol entry.
+    public var fullAreaMM: SizeMM?
 
     public init(id: String, name: String, sources: [Source], duplex: Bool, colorModes: [ColorMode],
-                resolutions: [Int], extras: [String], ocrLanguages: [String] = []) {
+                resolutions: [Int], extras: [String], ocrLanguages: [String] = [],
+                formats: [String] = ["pdf"], areas: [String] = [], fullAreaMM: SizeMM? = nil) {
         self.id = id; self.name = name; self.sources = sources; self.duplex = duplex
         self.colorModes = colorModes; self.resolutions = resolutions; self.extras = extras
         self.ocrLanguages = ocrLanguages
+        self.formats = formats; self.areas = areas; self.fullAreaMM = fullAreaMM
     }
 
     public var json: [String: Any] {
@@ -27,6 +35,8 @@ public struct ScannerInfo: Equatable, Sendable {
                                      "colorModes": colorModes.map(\.rawValue), "resolutions": resolutions,
                                      "extras": extras]
         if !ocrLanguages.isEmpty { object["ocr"] = ["languages": ocrLanguages] }
+        if formats != ["pdf"] { object["formats"] = formats }
+        if !areas.isEmpty { object["areas"] = areas }
         return object
     }
 
@@ -40,7 +50,9 @@ public struct ScannerInfo: Equatable, Sendable {
                   colorModes: (json["colorModes"] as? [String] ?? []).compactMap(ColorMode.init(rawValue:)),
                   resolutions: json["resolutions"] as? [Int] ?? [],
                   extras: json["extras"] as? [String] ?? [],
-                  ocrLanguages: ocr?["languages"] as? [String] ?? [])
+                  ocrLanguages: ocr?["languages"] as? [String] ?? [],
+                  formats: json["formats"] as? [String] ?? ["pdf"],
+                  areas: json["areas"] as? [String] ?? [])
     }
 }
 
@@ -54,12 +66,16 @@ public struct ScanSettings: Equatable, Sendable {
     public var ocr: Bool
     /// Deduplicated, in request order.
     public var ocrLanguages: [String]
+    public var format: String
+    /// The chosen scan area's id; nil for a scanner without areas.
+    public var area: String?
 
     public init(source: Source, duplex: Bool, colorMode: ColorMode, resolution: Int, extras: [String: Bool],
-                ocr: Bool = false, ocrLanguages: [String] = []) {
+                ocr: Bool = false, ocrLanguages: [String] = [], format: String = "pdf", area: String? = nil) {
         self.source = source; self.duplex = duplex; self.colorMode = colorMode
         self.resolution = resolution; self.extras = extras
         self.ocr = ocr; self.ocrLanguages = ocrLanguages
+        self.format = format; self.area = area
     }
 
     public func extra(_ name: String) -> Bool { extras[name] ?? false }

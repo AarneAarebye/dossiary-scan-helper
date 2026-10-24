@@ -32,3 +32,8 @@ func pairedStore(name: String = "scanner", fingerprint: String = String(repeatin
     try! store.add(server, token: "tok-\(name)")
     return (store, server)
 }
+
+let piPhotoScanner: [String: Any] = ["id": "sane:canoscan-8800f", "name": "Canon CanoScan 8800F", "sources": ["flatbed"],
+                                     "duplex": false, "colorModes": ["color", "gray", "bw"],
+                                     "resolutions": [150, 300, 600, 1200], "extras": [],
+                                     "formats": ["pdf", "jpeg", "png"], "areas": ["a4", "a5", "a6", "10x15", "13x18"]]

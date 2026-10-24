@@ -115,3 +115,65 @@ private func settings(_ source: Source, duplex: Bool = false, extras: [String: B
     // The other fakes still build their PDFs the usual way.
     #expect(try await backend.scan(scannerID: "fake:flatbed", settings: plainSettings).pdfs == nil)
 }
+
+@Test func thePhotoScannerComesLastWithItsFormatsAndAreas() throws {
+    let infos = FakeScanners.infos
+    #expect(infos.map(\.id).last == "fake:photo")
+    let photo = try #require(infos.last)
+    #expect(photo.name == "Fake Photo Scanner" && photo.sources == [.flatbed] && !photo.duplex)
+    #expect(photo.resolutions == [150, 300, 600, 1200])
+    #expect(photo.formats == ["pdf", "jpeg", "png"] && photo.areas == ["a4", "10x15"])
+    #expect(photo.ocrLanguages.isEmpty && photo.extras.isEmpty)
+    #expect(infos.dropLast().allSatisfy { $0.formats == ["pdf"] && $0.areas.isEmpty })
+}
+
+@Test(arguments: [("jpeg", Data([0xFF, 0xD8, 0xFF])), ("png", Data([0x89, 0x50, 0x4E, 0x47]))])
+func aPhotoScanReturnsOneTinyImage(format: String, signature: Data) async throws {
+    let backend = FakeBackend()
+    let settings = ScanSettings(source: .flatbed, duplex: false, colorMode: .color, resolution: 600, extras: [:],
+                                format: format, area: "10x15")
+    let result = try await backend.scan(scannerID: "fake:photo", settings: settings)
+    let image = try #require(result.image)
+    #expect(image.format == format && image.data.prefix(signature.count) == signature)
+    #expect(result.documents.isEmpty && result.partialMessage == nil)
+    let payload = try ScanResponse.payload(result, date: Date())
+    #expect(payload["message"] as? String == "1 image scanned.")
+}
+
+@Test func aPhotoScannerPdfScanStillMakesAPdf() async throws {
+    let settings = ScanSettings(source: .flatbed, duplex: false, colorMode: .color, resolution: 150, extras: [:],
+                                area: "a4")
+    let result = try await FakeBackend().scan(scannerID: "fake:photo", settings: settings)
+    #expect(result.image == nil && result.documents.map(\.count) == [1])
+}
+
+private func photoRouter() async throws -> (Router, String) {
+    let pairing = PairingStore(mode: .fake)
+    let token = try pairing.pair(code: "000000", client: nil)
+    return (Router(backend: FakeBackend(), pairing: pairing), token)
+}
+
+private func photoRequest(_ token: String, _ body: String) -> HTTPRequest {
+    HTTPRequest(method: "POST", path: "/scan", headers: ["Authorization": "Bearer \(token)"],
+                body: Data(body.utf8), bodyError: nil)
+}
+
+private func photoObject(_ response: HTTPResponse) -> [String: Any] {
+    (try? JSONSerialization.jsonObject(with: response.body)) as? [String: Any] ?? [:]
+}
+
+@Test func theRouterAnswersAnImageScanAndTheRefusals() async throws {
+    let (router, token) = try await photoRouter()
+    let scan = await router.handle(photoRequest(token, #"{"scanner":"fake:photo","format":"jpeg","area":"10x15","resolution":1200}"#))
+    #expect(scan.status == 200)
+    let files = try #require(photoObject(scan)["files"] as? [[String: Any]])
+    #expect(files.count == 1 && files[0]["pages"] as? Int == 1 && (files[0]["name"] as? String)?.hasSuffix(".jpg") == true)
+    for body in [#"{"scanner":"fake:photo","area":"a4","resolution":1200}"#,
+                 #"{"scanner":"fake:photo","format":"jpeg","colorMode":"bw"}"#,
+                 #"{"scanner":"fake:photo","format":"png","ocr":true}"#,
+                 #"{"scanner":"fake:flatbed","format":"jpeg"}"#,
+                 #"{"scanner":"fake:flatbed","area":"a4"}"#] {
+        #expect(await router.handle(photoRequest(token, body)).status == 422, "\(body)")
+    }
+    #expect(await router.handle(photoRequest(token, #"{"scanner":"fake:photo","area":5}"#)).status == 400)
+}

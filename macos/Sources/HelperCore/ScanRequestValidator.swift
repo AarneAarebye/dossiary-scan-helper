@@ -59,11 +59,21 @@ public enum ScanRequestValidator {
             throw ProtocolError(422, "\(scanner.name) can't scan at \(resolution) dpi.")
         }
         let format = object["format"] as? String ?? "pdf"
-        guard format == "pdf" else {
-            throw ProtocolError(422, "Format “\(format)” isn't supported; use pdf.")
+        guard scanner.formats.contains(format) else {
+            throw ProtocolError(422, "\(scanner.name) can't make \(format) files; it offers \(scanner.formats.joined(separator: ", ")).")
         }
-        if object["area"] != nil {  // no scanner of this helper has scan areas
+        if object["area"] != nil && scanner.areas.isEmpty {
             throw ProtocolError(422, "\(scanner.name) has no scan areas.")
+        }
+        let area = object["area"] as? String ?? scanner.areas.first
+        if let area, !scanner.areas.contains(area) {
+            throw ProtocolError(422, "\(scanner.name) doesn't offer the area “\(area)”.")
+        }
+        if format == "jpeg" && colorMode == .bw {
+            throw ProtocolError(422, "JPEG can't be black and white; use PNG or PDF.")
+        }
+        if format != "pdf" && source == .feeder {
+            throw ProtocolError(422, "Images can only be scanned from the flatbed.")
         }
         let duplex = JSONBody.bool(object["duplex"]) ?? false
         if duplex && !(scanner.duplex && source == .feeder) {
@@ -73,6 +83,9 @@ public enum ScanRequestValidator {
             throw ProtocolError(422, "\(scanner.name) doesn't offer “\(name)”.")
         }
         let ocr = JSONBody.bool(object["ocr"]) ?? false
+        if ocr && format != "pdf" {
+            throw ProtocolError(422, "A searchable PDF can't be made from an image; scan to PDF instead.")
+        }
         if ocr {
             guard !scanner.ocrLanguages.isEmpty else {
                 throw ProtocolError(422, "\(scanner.name) can't make searchable PDFs.")
@@ -82,8 +95,24 @@ public enum ScanRequestValidator {
             }
         }
 
+        if let area {
+            let size: SizeMM? = area == Areas.full
+                ? scanner.fullAreaMM
+                : Areas.named(area).map { SizeMM(width: $0.widthMM, height: $0.heightMM) }
+            if let size {
+                let pixels = Areas.pixelCount(widthMM: size.width, heightMM: size.height, dpi: resolution)
+                if Areas.isOverLimit(pixels) {
+                    let label = area == Areas.full ? "The whole glass" : (Areas.named(area)?.label ?? area)
+                    let megapixels = Int((Double(pixels) / 1_000_000).rounded())
+                    throw ProtocolError(422, "\(label) at \(resolution) dpi is too large (\(megapixels) megapixels; "
+                        + "the limit is \(Areas.maxPixels / 1_000_000)): choose a smaller area or a lower resolution.")
+                }
+            }
+        }
+
         return (scanner, ScanSettings(source: source, duplex: duplex, colorMode: colorMode,
                                       resolution: resolution, extras: extras,
-                                      ocr: ocr, ocrLanguages: ocr ? ocrLanguages : []))
+                                      ocr: ocr, ocrLanguages: ocr ? ocrLanguages : [],
+                                      format: format, area: area))
     }
 }

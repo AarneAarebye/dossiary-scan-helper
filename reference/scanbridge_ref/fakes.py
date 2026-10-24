@@ -131,6 +131,8 @@ def validate(body):
         raise ScanError(422, f"{scanner.name} doesn't offer the area “{area}”.")
     if fmt == "jpeg" and color_mode == "bw":
         raise ScanError(422, "JPEG can't be black and white; use PNG or PDF.")
+    if fmt != "pdf" and source == "feeder":
+        raise ScanError(422, "Images can only be scanned from the flatbed.")
     duplex = body.get("duplex", False)
     if duplex and not (scanner.duplex and source == "feeder"):
         raise ScanError(422, f"{scanner.name} can't scan both sides from the {source}.")

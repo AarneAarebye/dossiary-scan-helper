@@ -157,6 +157,9 @@ Clients ignore extras they don't know.
 and it is what a request without `format` gets), `"jpeg"` and `"png"`. An image
 scan returns one image file per scan (see Response) and is never OCR'd. A scanner
 without `formats` offers only `["pdf"]`.
+Images only come from the flatbed: a scan from the feeder is always a PDF, so a
+scanner that has both lists the image formats once, and the feeder source refuses
+them.
 
 `areas` lists, by id, the parts of the glass a flatbed can scan. An area is
 sized in millimetres, upright, with its top-left corner at the glass's corner
@@ -169,9 +172,16 @@ mark:
 | `a6` | 105 x 148 |
 | `10x15` | 100 x 150 |
 | `13x18` | 130 x 180 |
+| `full` | the scanner's own whole scan area, whatever its size |
 
 A scanner lists only the ids it offers. A scanner without `areas` (a feeder)
 decides itself, and a request that names an `area` for it is refused.
+
+`full` is for a scanner that scans whatever size of glass it has, such as a
+local scanner a helper finds through the operating system. A scanner that lists
+it lists it first, so it is the default: a request without `area` scans the
+whole glass, as it always did. The scanner entry doesn't say how big `full` is;
+the size limit below uses its real size. scanix500 never lists `full`.
 
 A helper may refuse a scan that is too large for it. The limit is the helper's
 own, not a field: its message says what to change. scanix500 and the reference
@@ -223,7 +233,8 @@ this order and answers with the first failure:
    `resolutions`; `format` not in the scanner's `formats` (a scanner
    without `formats` offers only `"pdf"`); `area` not in the scanner's
    `areas`, or an `area` for a scanner without `areas`; `colorMode:
-   "bw"` with `format: "jpeg"`; `duplex: true` when the scanner has
+   "bw"` with `format: "jpeg"`; an image `format` (`"jpeg"` or `"png"`) with
+   `source` `"feeder"`; `duplex: true` when the scanner has
    `duplex: false` or the source isn't `"feeder"`; an extra set to
    `true` that isn't in the scanner's `extras`. (An unknown extra set to
    `false` is accepted.) `ocr: true` with an image format, or for a
