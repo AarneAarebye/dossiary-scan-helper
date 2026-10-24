@@ -154,3 +154,77 @@ private func ocrStatus(_ body: [String: Any]) -> Int? {
     #expect(JSONBody.bool(json("true")) == true)
     #expect(JSONBody.bool(json("1")) == nil)
 }
+
+private let photoScanner = ScannerInfo(
+    id: "s:photo", name: "Photo Scanner", sources: [.flatbed, .feeder], duplex: false,
+    colorModes: [.color, .gray, .bw], resolutions: [150, 300, 600, 1200], extras: [],
+    formats: ["pdf", "jpeg", "png"], areas: ["full", "a4", "10x15"], fullAreaMM: SizeMM(width: 216, height: 297))
+private let photoOcrScanner = ScannerInfo(
+    id: "s:photo-ocr", name: "Photo OCR Scanner", sources: [.flatbed], duplex: false, colorModes: [.color],
+    resolutions: [300], extras: [], ocrLanguages: ["deu", "eng"], formats: ["pdf", "jpeg"], areas: ["a4"])
+private let unknownGlass = ScannerInfo(
+    id: "s:unknown", name: "Unknown Glass", sources: [.flatbed], duplex: false, colorModes: [.color],
+    resolutions: [300, 1200], extras: [], formats: ["pdf", "jpeg"], areas: ["full"])
+
+private func photo(_ body: [String: Any], scanners: [ScannerInfo]? = nil) throws -> ScanSettings {
+    try ScanRequestValidator.validate(body, scanners: scanners ?? [photoScanner, photoOcrScanner, unknownGlass]).1
+}
+
+private func photoError(_ body: [String: Any]) -> ProtocolError? {
+    do { _ = try photo(body); return nil } catch let error as ProtocolError { return error } catch { return nil }
+}
+
+@Test func aRequestWithoutFormatOrAreaGetsPdfAndTheFirstArea() throws {
+    let settings = try photo(["scanner": "s:photo"])
+    #expect(settings.format == "pdf" && settings.area == "full")
+    let plain = try ScanRequestValidator.validate(["scanner": "fake:flatbed"], scanners: FakeScanners.infos).1
+    #expect(plain.format == "pdf" && plain.area == nil)
+}
+
+@Test func anImageRequestIsAccepted() throws {
+    let settings = try photo(["scanner": "s:photo", "format": "jpeg", "area": "10x15", "resolution": 1200])
+    #expect(settings.format == "jpeg" && settings.area == "10x15" && settings.resolution == 1200)
+    _ = try photo(["scanner": "s:photo", "format": "png", "colorMode": "bw", "area": "a4", "resolution": 600])
+    _ = try photo(["scanner": "s:photo", "source": "feeder"])  // a PDF from the feeder is fine
+}
+
+@Test func unsupportedImageRequestsAre422WithTheirOwnMessages() {
+    let cases: [([String: Any], String)] = [
+        (["scanner": "s:photo", "format": "tiff"], "Photo Scanner can't make tiff files; it offers pdf, jpeg, png."),
+        (["scanner": "s:photo", "area": "a5"], "Photo Scanner doesn't offer the area “a5”."),
+        (["scanner": "s:photo", "format": "jpeg", "colorMode": "bw"], "JPEG can't be black and white; use PNG or PDF."),
+        (["scanner": "s:photo", "format": "png", "source": "feeder"], "Images can only be scanned from the flatbed."),
+        (["scanner": "s:photo", "format": "jpeg", "source": "feeder"], "Images can only be scanned from the flatbed."),
+        (["scanner": "s:photo-ocr", "format": "jpeg", "ocr": true], "A searchable PDF can't be made from an image; scan to PDF instead."),
+        (["scanner": "s:photo", "area": "a4", "resolution": 1200],
+         "A4 at 1200 dpi is too large (139 megapixels; the limit is 100): choose a smaller area or a lower resolution."),
+        (["scanner": "s:photo", "area": "full", "resolution": 1200],
+         "The whole glass at 1200 dpi is too large (143 megapixels; the limit is 100): choose a smaller area or a lower resolution."),
+        (["scanner": "fake:flatbed", "format": "jpeg"], "Fake Flatbed can't make jpeg files; it offers pdf."),
+    ]
+    for (body, message) in cases {
+        let scanners = body["scanner"] as? String == "fake:flatbed" ? FakeScanners.infos : [photoScanner, photoOcrScanner]
+        do {
+            _ = try ScanRequestValidator.validate(body, scanners: scanners)
+            Issue.record("accepted: \(body)")
+        } catch let error as ProtocolError {
+            #expect(error.status == 422 && error.message == message, "\(body): \(error.message)")
+        } catch {
+            Issue.record("unexpected error for \(body)")
+        }
+    }
+}
+
+@Test func anAreaWhoseSizeIsUnknownSkipsTheLimitCheck() throws {
+    let settings = try photo(["scanner": "s:unknown", "format": "jpeg", "area": "full", "resolution": 1200])
+    #expect(settings.area == "full")
+}
+
+@Test func theSizeLimitCountsTheScannersRealGlassForFull() throws {
+    _ = try photo(["scanner": "s:photo", "area": "full", "resolution": 600])  // 36 megapixels: fine
+}
+
+@Test func wrongTypesAre400BeforeAnyPhoto422() {
+    #expect(photoError(["scanner": "s:photo", "area": 5, "format": "jpeg", "colorMode": "bw"])?.status == 400)
+    #expect(photoError(["scanner": "s:photo", "format": ["jpeg"], "area": "a5"])?.status == 400)
+}
