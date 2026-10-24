@@ -22,7 +22,7 @@ Needs macOS 14 or later and the Command Line Tools (`xcode-select --install`); X
     cd macos
     scripts/test.sh                 # unit tests (swift test, plus the Testing plugin path)
     scripts/run-conformance.sh      # the conformance suite against --fake-scanners
-    swift run dossiary-scan-helper --fake-scanners   # menu bar app with the eight fake scanners
+    swift run dossiary-scan-helper --fake-scanners   # menu bar app with the nine fake scanners
 
 `--headless` runs without the menu bar icon and logs to the terminal too. The log file is
 `~/Library/Logs/dossiary-scan-helper/helper.log`.
