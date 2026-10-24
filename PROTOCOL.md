@@ -189,6 +189,9 @@ resolution."
   "ocr": true, "ocrLanguages": ["deu", "eng"] }
 ```
 
+The example's scanner is a feeder, so it sends no `area`; for a flatbed that
+lists `areas`, `area` takes one of those ids.
+
 Only `scanner` is required. Missing fields use the scanner's defaults:
 the first `source`, `colorMode` and `resolution`, `duplex` false,
 `format` `"pdf"`, the first `area` (for a scanner that lists areas),
@@ -376,9 +379,10 @@ defence, and helpers listen on `127.0.0.1` only.
 
 Every helper has a fake scanner mode (`--fake-scanners` for the native
 helpers; the reference helper has nothing else). It exists for testing
-only. It replaces the real scanners with exactly these seven, plus
-`fake:ocr` when the helper does background OCR and `fake:photo` when it
-offers image formats, so one
+only. It replaces the real scanners with the seven required fake scanners
+below (the first seven rows), plus the optional `fake:ocr` when the helper
+does background OCR and the optional `fake:photo` when it offers image
+formats, so one
 conformance suite can test every helper without hardware, and fixes the
 pairing code at `000000` (see Pairing). Pages carry the text shown; `""`
 is a blank page.
@@ -396,7 +400,7 @@ is a blank page.
 | `fake:photo` | Fake Photo Scanner | flatbed | false | color, gray, bw | 150, 300, 600, 1200 | — |
 
 `fake:ocr` also offers `ocr: {"languages": ["deu", "eng"]}`. It's optional for
-now: a helper may list only the first seven.
+now: a helper may leave it out and list only the seven required ones.
 
 `fake:photo` also offers `formats: ["pdf", "jpeg", "png"]` and `areas: ["a4",
 "10x15"]`. It's optional: a helper that doesn't offer image formats doesn't
@@ -438,7 +442,7 @@ What a scan returns:
 In fake scanner mode, messages are always English and exact, even in a
 helper that localizes the messages for real scanners:
 
-- A successful scan: `"<n> pages scanned."` (`"1 page scanned."` for one
+- A successful PDF scan: `"<n> pages scanned."` (`"1 page scanned."` for one
   page), where `n` counts all pages in all files.
 - A successful image scan: `"1 image scanned."`.
 - `fake:jam`: a message containing `jam`.
