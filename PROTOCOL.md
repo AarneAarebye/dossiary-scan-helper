@@ -135,6 +135,8 @@ documents runs with real scanners.
 | `colorModes` | array of `"color"` / `"gray"` / `"bw"` | At least one. The first is the default. |
 | `resolutions` | array of integers (dpi), ascending | At least one. The first is the default. |
 | `extras` | array of strings | Extra abilities, see below. |
+| `formats` | array of `"pdf"` / `"jpeg"` / `"png"`, optional | What a scan can come back as. Absent means `["pdf"]`. Always includes `"pdf"`, the default of a request without `format`. See Formats and areas. |
+| `areas` | array of area ids, optional | The scan areas the scanner offers; the first is the default. Absent: the scanner decides (feeders). See Formats and areas. |
 | `ocr` | object, optional | Present only when the helper can make a searchable PDF of this scanner's pages (see Background OCR). `languages`: the OCR languages it offers, as Tesseract-style codes (`deu`, `eng`, `fra`, `spa`, `chi_sim`, `chi_tra`). |
 
 An empty `scanners` array is a valid answer: the helper runs, but found
@@ -149,6 +151,35 @@ no scanner.
 
 Clients ignore extras they don't know.
 
+### Formats and areas
+
+`formats` says what a scan can come back as: `"pdf"` (every scanner offers it,
+and it is what a request without `format` gets), `"jpeg"` and `"png"`. An image
+scan returns one image file per scan (see Response) and is never OCR'd. A scanner
+without `formats` offers only `["pdf"]`.
+
+`areas` lists, by id, the parts of the glass a flatbed can scan. An area is
+sized in millimetres, upright, with its top-left corner at the glass's corner
+mark:
+
+| Area id | Width x height (mm) |
+|---|---|
+| `a4` | 210 x 297 |
+| `a5` | 148 x 210 |
+| `a6` | 105 x 148 |
+| `10x15` | 100 x 150 |
+| `13x18` | 130 x 180 |
+
+A scanner lists only the ids it offers. A scanner without `areas` (a feeder)
+decides itself, and a request that names an `area` for it is refused.
+
+A helper may refuse a scan that is too large for it. The limit is the helper's
+own, not a field: its message says what to change. scanix500 and the reference
+helper refuse more than 100,000,000 pixels (the area's width and height at the
+resolution, each rounded to whole pixels), for example "A4 at 1200 dpi is too
+large (139 megapixels; the limit is 100): choose a smaller area or a lower
+resolution."
+
 ## `POST /scan`
 
 ```json
@@ -160,7 +191,8 @@ Clients ignore extras they don't know.
 
 Only `scanner` is required. Missing fields use the scanner's defaults:
 the first `source`, `colorMode` and `resolution`, `duplex` false,
-`format` `"pdf"`, every extra off.
+`format` `"pdf"`, the first `area` (for a scanner that lists areas),
+every extra off.
 `ocr` (default false) asks for a searchable PDF in the background;
 `ocrLanguages` picks its languages, most likely first (a helper may use the
 order as priority). Missing or `[]` means the helper's choice; a repeated
@@ -179,18 +211,22 @@ this order and answers with the first failure:
    body over 1,000,000 bytes, see Requests) → **400**.
 2. `scanner` is missing or not a string → **400**.
 3. `scanner` is not a known id → **404**.
-4. A field has the wrong JSON type (`source`, `colorMode`, `format` not
-   strings; `resolution` not an integer; `duplex` not a boolean; `extras`
+4. A field has the wrong JSON type (`source`, `colorMode`, `format`, `area`
+   not strings; `resolution` not an integer; `duplex` not a boolean; `extras`
    not an object whose values are all booleans; `ocr` not a boolean;
    `ocrLanguages` not an array of strings) → **400**.
 5. A value the scanner doesn't offer → **422**: `source` not in
    `sources`; `colorMode` not in `colorModes`; `resolution` not in
-   `resolutions`; `format` other than `"pdf"`; `duplex: true` when the
-   scanner has `duplex: false` or the source isn't `"feeder"`; an extra
-   set to `true` that isn't in the scanner's `extras`. (An unknown extra
-   set to `false` is accepted.) `ocr: true` for a scanner without `ocr`;
-   an `ocrLanguages` entry not in the scanner's `ocr.languages` (checked
-   only with `ocr: true`).
+   `resolutions`; `format` not in the scanner's `formats` (a scanner
+   without `formats` offers only `"pdf"`); `area` not in the scanner's
+   `areas`, or an `area` for a scanner without `areas`; `colorMode:
+   "bw"` with `format: "jpeg"`; `duplex: true` when the scanner has
+   `duplex: false` or the source isn't `"feeder"`; an extra set to
+   `true` that isn't in the scanner's `extras`. (An unknown extra set to
+   `false` is accepted.) `ocr: true` with an image format, or for a
+   scanner without `ocr`; an `ocrLanguages` entry not in the scanner's
+   `ocr.languages` (checked only with `ocr: true`). A scan over the
+   helper's size limit (see Formats and areas).
 6. Another scan is running on this helper → **409**.
 7. The scanner can't be reached, or the system denied access → **503**.
 
@@ -206,11 +242,13 @@ device) → **500**.
 ```
 
 - `files`: one PDF with every page; with `splitOnBlank`, one PDF per
-  document, in scan order.
-- `pages`: the number of pages in that PDF.
-- `data`: the PDF, base64-encoded (standard alphabet, with padding).
+  document, in scan order. With `format` `"jpeg"` or `"png"`: one image
+  file for the scan.
+- `pages`: the number of pages in that PDF; `1` for an image.
+- `data`: the file, base64-encoded (standard alphabet, with padding).
 - `name`: a plain file name: no `/` or `\`, not starting with `.`,
-  ending in `.pdf`, unique within the response.
+  ending in `.pdf`, `.jpg` (for `"jpeg"`) or `.png`, unique within the
+  response.
 - `partial: true` (with `ok: false`) means something went wrong but
   usable pages came back, for example a paper jam after the second
   sheet. `files` then holds those pages and `message` says what happened.
@@ -339,7 +377,8 @@ defence, and helpers listen on `127.0.0.1` only.
 Every helper has a fake scanner mode (`--fake-scanners` for the native
 helpers; the reference helper has nothing else). It exists for testing
 only. It replaces the real scanners with exactly these seven, plus
-`fake:ocr` when the helper does background OCR, so one
+`fake:ocr` when the helper does background OCR and `fake:photo` when it
+offers image formats, so one
 conformance suite can test every helper without hardware, and fixes the
 pairing code at `000000` (see Pairing). Pages carry the text shown; `""`
 is a blank page.
@@ -354,9 +393,14 @@ is a blank page.
 | `fake:offline` | Fake Offline Scanner | flatbed | false | color, gray, bw | 150, 300, 600 | — |
 | `fake:empty` | Fake Empty Feeder | feeder | false | color, gray, bw | 150, 300, 600 | — |
 | `fake:ocr` | Fake OCR Scanner | flatbed | false | color, gray, bw | 150, 300, 600 | — |
+| `fake:photo` | Fake Photo Scanner | flatbed | false | color, gray, bw | 150, 300, 600, 1200 | — |
 
 `fake:ocr` also offers `ocr: {"languages": ["deu", "eng"]}`. It's optional for
 now: a helper may list only the first seven.
+
+`fake:photo` also offers `formats: ["pdf", "jpeg", "png"]` and `areas: ["a4",
+"10x15"]`. It's optional: a helper that doesn't offer image formats doesn't
+list it.
 
 What a scan returns:
 
@@ -384,12 +428,19 @@ What a scan returns:
   works: the result's bytes contain the literal text `Flatbed page 1` (for
   example in an uncompressed content stream, as the reference helper
   writes it) and the plain file's bytes don't.
+- **`fake:photo`**: without `format`, like any flatbed (one PDF, one page).
+  With `format` `"jpeg"` or `"png"`: one small valid image file (a JPEG
+  starts with `FF D8 FF`, a PNG with its 8-byte signature), `pages: 1`, a
+  name ending in `.jpg` or `.png`, no `ocrJob`. Every refusal in "Request
+  validation" applies, and **`a4` at 1200 dpi is refused (422)**, being
+  over the size limit; `10x15` at 1200 dpi is allowed.
 
 In fake scanner mode, messages are always English and exact, even in a
 helper that localizes the messages for real scanners:
 
 - A successful scan: `"<n> pages scanned."` (`"1 page scanned."` for one
   page), where `n` counts all pages in all files.
+- A successful image scan: `"1 image scanned."`.
 - `fake:jam`: a message containing `jam`.
 - `fake:empty`: `No paper in the feeder.`
 - A refused pairing code: a message containing `Pair a browser`.
