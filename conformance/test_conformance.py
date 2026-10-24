@@ -33,6 +33,9 @@ FAKE_IDS = list(FAKE_SCANNERS)
 OPTIONAL_FAKES = {
     "fake:ocr": {"name": "Fake OCR Scanner", "sources": ["flatbed"], "duplex": False, "extras": [],
                  "ocr": {"languages": ["deu", "eng"]}},
+    "fake:photo": {"name": "Fake Photo Scanner", "sources": ["flatbed"], "duplex": False, "extras": [],
+                   "resolutions": [150, 300, 600, 1200],
+                   "formats": ["pdf", "jpeg", "png"], "areas": ["a4", "10x15"]},
 }
 
 
@@ -114,6 +117,11 @@ class ScannersTests(unittest.TestCase):
             if "ocr" in s:
                 self.assertIsInstance(s["ocr"]["languages"], list)
                 self.assertTrue(s["ocr"]["languages"] and all(isinstance(l, str) for l in s["ocr"]["languages"]))
+            if "formats" in s:
+                self.assertIn("pdf", s["formats"])
+                self.assertTrue(set(s["formats"]) <= {"pdf", "jpeg", "png"})
+            if "areas" in s:
+                self.assertTrue(s["areas"] and all(isinstance(a, str) for a in s["areas"]))
 
     def test_fake_scanner_table(self):
         scanners = {s["id"]: s for s in request("GET", "/scanners").json()["scanners"]}
@@ -124,7 +132,7 @@ class ScannersTests(unittest.TestCase):
             actual = dict(scanners[scanner_id])
             # The order of extras carries no meaning; every other list's order does.
             actual["extras"] = sorted(actual["extras"])
-            self.assertEqual(actual, {"id": scanner_id, **expected, **_STANDARD,
+            self.assertEqual(actual, {"id": scanner_id, **_STANDARD, **expected,
                                       "extras": sorted(expected["extras"])}, scanner_id)
 
 
@@ -262,6 +270,15 @@ class ErrorTests(unittest.TestCase):
         self.assertError(scan({"scanner": "fake:flatbed", "duplex": True}), 422)
         self.assertError(scan({"scanner": "fake:feeder", "source": "flatbed", "duplex": True}), 422)
         self.assertError(scan({"scanner": "fake:flatbed", "extras": {"splitOnBlank": True}}), 422)
+
+    def test_formats_and_areas_on_a_scanner_without_them(self):
+        # Applies to every helper (PROTOCOL.md "Request validation"): a scanner without
+        # `formats` offers only pdf, and one without `areas` refuses any `area`.
+        self.assertError(scan({"scanner": "fake:flatbed", "area": "a4"}), 422)
+        self.assertError(scan({"scanner": "fake:flatbed", "format": "jpeg"}), 422)
+        self.assertError(scan({"scanner": "fake:flatbed", "area": 5}), 400)
+        # A wrong `area` type (step 4) beats a 422 for another field (step 5).
+        self.assertError(scan({"scanner": "fake:flatbed", "area": 5, "resolution": 1200}), 400)
 
     def test_503_offline(self):
         self.assertError(scan({"scanner": "fake:offline"}), 503)
@@ -549,6 +566,64 @@ class OcrTests(unittest.TestCase):
     def test_cors_on_ocr_answers(self):
         resp = request("GET", "/ocr/no-such-job-0000000000000", headers={"Origin": "null"})
         assert_cors(self, resp, "null")
+
+
+class PhotoTests(unittest.TestCase):
+    """Image formats and scan areas (PROTOCOL.md, "Formats and areas"). Runs only against a
+    helper listing fake:photo."""
+
+    @classmethod
+    def setUpClass(cls):
+        if "fake:photo" not in listed_ids():
+            raise unittest.SkipTest("helper doesn't list fake:photo (image formats are optional)")
+
+    def image_scan(self, fmt, **extra):
+        return scan({"scanner": "fake:photo", "format": fmt, **extra})
+
+    def assertImage(self, resp, suffix, signature):
+        self.assertEqual(resp.status, 200, resp.body[:200])
+        data = resp.json()
+        self.assertIs(data["ok"], True)
+        self.assertEqual(data["message"], "1 image scanned.")
+        (f,) = data["files"]
+        self.assertEqual(f["pages"], 1)
+        self.assertTrue(f["name"].endswith(suffix), f["name"])
+        self.assertNotIn("/", f["name"])
+        self.assertNotIn("ocrJob", f)
+        raw = base64.b64decode(f["data"], validate=True)
+        self.assertTrue(raw.startswith(signature), raw[:8])
+        return raw
+
+    def test_jpeg(self):
+        raw = self.assertImage(self.image_scan("jpeg", area="10x15", resolution=600), ".jpg", b"\xff\xd8\xff")
+        self.assertTrue(raw.rstrip(b"\x00").endswith(b"\xff\xd9"))
+
+    def test_png(self):
+        raw = self.assertImage(self.image_scan("png", colorMode="bw"), ".png", b"\x89PNG\r\n\x1a\n")
+        self.assertTrue(raw.endswith(b"IEND\xaeB`\x82"))
+
+    def test_the_default_format_is_pdf_and_the_default_area_is_the_first(self):
+        resp = scan({"scanner": "fake:photo"})
+        self.assertEqual(resp.status, 200, resp.body[:200])
+        f = resp.json()["files"][0]
+        self.assertTrue(f["name"].endswith(".pdf"))
+        self.assertTrue(base64.b64decode(f["data"]).startswith(b"%PDF-"))
+        # Without `area`, the first area (a4) is used: a4 at 1200 dpi is over the size limit.
+        assert_error(self, scan({"scanner": "fake:photo", "resolution": 1200}), 422)
+
+    def test_the_largest_allowed_scan(self):
+        self.assertEqual(self.image_scan("jpeg", area="10x15", resolution=1200).status, 200)
+
+    def test_refusals_are_422_with_a_message(self):
+        for body in ({"format": "tiff"}, {"area": "a5"}, {"format": "jpeg", "colorMode": "bw"},
+                     {"format": "jpeg", "ocr": True}, {"format": "png", "ocr": True},
+                     {"area": "a4", "resolution": 1200}, {"format": "png", "area": "a4", "resolution": 1200}):
+            resp = scan({"scanner": "fake:photo", **body})
+            self.assertEqual(resp.status, 422, body)
+            assert_error(self, resp, 422)
+
+    def test_a_wrong_type_is_400_before_any_422(self):
+        assert_error(self, scan({"scanner": "fake:photo", "area": 5, "format": "jpeg", "colorMode": "bw"}), 400)
 
 
 if __name__ == "__main__":

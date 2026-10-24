@@ -107,6 +107,36 @@ private func ocrStatus(_ body: [String: Any]) -> Int? {
     }
 }
 
+@Test func areaMustBeText() {
+    for body in [#"{"scanner":"fake:flatbed","area":5}"#, #"{"scanner":"fake:flatbed","area":["a4"]}"#,
+                 #"{"scanner":"fake:flatbed","area":null}"#] {
+        #expect(status(body) == 400, "\(body)")
+    }
+    // A wrong area type beats a 422 for another field.
+    #expect(status(#"{"scanner":"fake:flatbed","area":5,"resolution":1200}"#) == 400)
+}
+
+@Test func anyAreaIs422() throws {
+    for body in [#"{"scanner":"fake:flatbed","area":"a4"}"#, #"{"scanner":"fake:feeder","area":"10x15"}"#,
+                 #"{"scanner":"fake:flatbed","area":""}"#] {
+        #expect(status(body) == 422, "\(body)")
+    }
+    do {
+        _ = try ScanRequestValidator.validate(json(#"{"scanner":"fake:flatbed","area":"a4"}"#),
+                                              scanners: FakeScanners.infos)
+        Issue.record("an area was accepted")
+    } catch let error as ProtocolError {
+        #expect(error.message == "Fake Flatbed has no scan areas.")
+    }
+}
+
+@Test func requestWithoutAreaIsUnaffected() throws {
+    #expect(status(#"{"scanner":"fake:flatbed"}"#) == nil)
+    let (_, settings) = try ScanRequestValidator.validate(json(#"{"scanner":"fake:flatbed","resolution":300}"#),
+                                                          scanners: FakeScanners.infos)
+    #expect(settings == ScanSettings(source: .flatbed, duplex: false, colorMode: .color, resolution: 300, extras: [:]))
+}
+
 @Test func checksRunInProtocolOrder() {
     #expect(status(#"{"scanner":"fake:nope","source":1}"#) == 404)            // unknown scanner beats wrong type
     #expect(status(#"{"scanner":"fake:flatbed","source":1,"resolution":299}"#) == 400)  // wrong type beats 422

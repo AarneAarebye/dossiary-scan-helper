@@ -69,6 +69,30 @@ class OcrEndpointTests(unittest.TestCase):
         self.assertEqual(self.call("GET", "/ocr/")[0], 404)
         self.assertEqual(self.call("GET", "/ocr")[0], 404)
 
+    def test_a_jpeg_scan_returns_one_image_file(self):
+        status, body = self.call("POST", "/scan", {"scanner": "fake:photo", "format": "jpeg", "area": "10x15"})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["message"], "1 image scanned.")
+        (f,) = body["files"]
+        self.assertTrue(f["name"].endswith(".jpg"))
+        self.assertEqual((f["pages"], "ocrJob" in f), (1, False))
+        import base64
+        self.assertTrue(base64.b64decode(f["data"]).startswith(b"\xff\xd8\xff"))
+
+    def test_a_png_scan_and_the_default_pdf(self):
+        import base64
+        status, body = self.call("POST", "/scan", {"scanner": "fake:photo", "format": "png"})
+        self.assertEqual(status, 200)
+        self.assertTrue(body["files"][0]["name"].endswith(".png"))
+        self.assertTrue(base64.b64decode(body["files"][0]["data"]).startswith(b"\x89PNG"))
+        status, body = self.call("POST", "/scan", {"scanner": "fake:photo"})
+        self.assertTrue(body["files"][0]["name"].endswith(".pdf"))
+
+    def test_an_image_refusal_is_a_422_with_a_message(self):
+        status, body = self.call("POST", "/scan", {"scanner": "fake:photo", "area": "a4", "resolution": 1200})
+        self.assertEqual(status, 422)
+        self.assertIn("too large", body["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

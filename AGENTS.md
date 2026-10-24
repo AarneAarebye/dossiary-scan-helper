@@ -38,7 +38,9 @@ Linux, macOS and Windows, and the macOS unit tests, localization tests and confo
 ## Conventions
 
 - A protocol change touches `PROTOCOL.md`, the reference helper, the conformance tests and the
-  macOS helper together.
+  macOS helper together. Optional pieces of the protocol (the fake scanners `fake:ocr` and
+  `fake:photo`) may lag in the macOS helper, their tests skipping when a helper doesn't list the
+  fake scanner; rules that apply to every helper may not lag.
 - User-visible text in the macOS app lives in `macos/Localization/Localizable.xcstrings` (the
   English text is the key) and `InfoPlist.xcstrings`. Keep all seven languages complete; the
   localization tests fail on missing translations, changed placeholders or unknown keys. Messages

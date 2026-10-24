@@ -13,7 +13,7 @@ public enum ScanRequestValidator {
             throw ProtocolError(404, "No scanner with id “\(scannerID)”.")
         }
 
-        for key in ["source", "colorMode", "format"] where object[key] != nil && !(object[key] is String) {
+        for key in ["source", "colorMode", "format", "area"] where object[key] != nil && !(object[key] is String) {
             throw ProtocolError(400, "“\(key)” must be a string.")
         }
         if object["resolution"] != nil && JSONBody.integer(object["resolution"]) == nil {
@@ -61,6 +61,9 @@ public enum ScanRequestValidator {
         let format = object["format"] as? String ?? "pdf"
         guard format == "pdf" else {
             throw ProtocolError(422, "Format “\(format)” isn't supported; use pdf.")
+        }
+        if object["area"] != nil {  // no scanner of this helper has scan areas
+            throw ProtocolError(422, "\(scanner.name) has no scan areas.")
         }
         let duplex = JSONBody.bool(object["duplex"]) ?? false
         if duplex && !(scanner.duplex && source == .feeder) {
