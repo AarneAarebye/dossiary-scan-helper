@@ -226,9 +226,6 @@ class PhotoTests(unittest.TestCase):
         scanner, settings = validate({"scanner": "fake:photo", "format": "jpeg", "area": "10x15"})
         self.assertEqual(simulate(scanner, settings), ([["Flatbed page 1"]], False, "1 image scanned."))
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class ImagesNeedTheFlatbedTests(unittest.TestCase):
     def test_an_image_from_the_feeder_is_422_and_the_flatbed_and_pdf_are_fine(self):
@@ -244,3 +241,7 @@ class ImagesNeedTheFlatbedTests(unittest.TestCase):
                                  (422, "Images can only be scanned from the flatbed."))
             validate({"scanner": "fake:both", "source": "flatbed", "format": "jpeg"})
             validate({"scanner": "fake:both", "source": "feeder"})  # a PDF from the feeder is fine
+
+
+if __name__ == "__main__":
+    unittest.main()
