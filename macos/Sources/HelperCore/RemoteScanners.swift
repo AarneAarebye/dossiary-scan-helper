@@ -87,6 +87,8 @@ public final class RemoteScanners: @unchecked Sendable {
                                    "colorMode": settings.colorMode.rawValue, "resolution": settings.resolution,
                                    "extras": settings.extras]
         if settings.ocr { body["ocr"] = true; body["ocrLanguages"] = settings.ocrLanguages }
+        if settings.format != "pdf" { body["format"] = settings.format }
+        if let area = settings.area { body["area"] = area }
         let reply: RemoteReply
         do {
             reply = try await transport(server).send(RemoteRequest(method: "POST", path: "/scan", token: token,
