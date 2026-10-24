@@ -271,6 +271,15 @@ class ErrorTests(unittest.TestCase):
         self.assertError(scan({"scanner": "fake:feeder", "source": "flatbed", "duplex": True}), 422)
         self.assertError(scan({"scanner": "fake:flatbed", "extras": {"splitOnBlank": True}}), 422)
 
+    def test_formats_and_areas_on_a_scanner_without_them(self):
+        # Applies to every helper (PROTOCOL.md "Request validation"): a scanner without
+        # `formats` offers only pdf, and one without `areas` refuses any `area`.
+        self.assertError(scan({"scanner": "fake:flatbed", "area": "a4"}), 422)
+        self.assertError(scan({"scanner": "fake:flatbed", "format": "jpeg"}), 422)
+        self.assertError(scan({"scanner": "fake:flatbed", "area": 5}), 400)
+        # A wrong `area` type (step 4) beats a 422 for another field (step 5).
+        self.assertError(scan({"scanner": "fake:flatbed", "area": 5, "resolution": 1200}), 400)
+
     def test_503_offline(self):
         self.assertError(scan({"scanner": "fake:offline"}), 503)
 
@@ -599,6 +608,8 @@ class PhotoTests(unittest.TestCase):
         f = resp.json()["files"][0]
         self.assertTrue(f["name"].endswith(".pdf"))
         self.assertTrue(base64.b64decode(f["data"]).startswith(b"%PDF-"))
+        # Without `area`, the first area (a4) is used: a4 at 1200 dpi is over the size limit.
+        assert_error(self, scan({"scanner": "fake:photo", "resolution": 1200}), 422)
 
     def test_the_largest_allowed_scan(self):
         self.assertEqual(self.image_scan("jpeg", area="10x15", resolution=1200).status, 200)
@@ -610,10 +621,6 @@ class PhotoTests(unittest.TestCase):
             resp = scan({"scanner": "fake:photo", **body})
             self.assertEqual(resp.status, 422, body)
             assert_error(self, resp, 422)
-
-    def test_a_scanner_without_formats_or_areas_refuses_them(self):
-        assert_error(self, scan({"scanner": "fake:flatbed", "format": "jpeg"}), 422)
-        assert_error(self, scan({"scanner": "fake:flatbed", "area": "a4"}), 422)
 
     def test_a_wrong_type_is_400_before_any_422(self):
         assert_error(self, scan({"scanner": "fake:photo", "area": 5, "format": "jpeg", "colorMode": "bw"}), 400)
