@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .fakes import FAKE_SCANNERS, ScanError, simulate, validate
+from .images import EXTENSIONS, make_image
 from .ocr_jobs import OcrJobs
 from .pairing import bearer_token, pair, token_valid, validate_pair_body
 from .pdf import make_pdf
@@ -37,7 +38,7 @@ def origin_allowed(origin):
 
 
 def _error_body(message):
-    return {"ok": False, "partial": False, "message": message}
+    return {"ok": False, "partial": False, "message": message, "error": message}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -154,6 +155,12 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             _scan_lock.release()
         stamp = time.strftime("%Y%m%d_%H%M%S")
+        if settings["format"] != "pdf":
+            name = f"scan_{stamp}.{EXTENSIONS[settings['format']]}"
+            data = base64.b64encode(make_image(settings["format"])).decode("ascii")
+            self._send_json(200, {"ok": True, "partial": False, "message": message,
+                                  "files": [{"name": name, "pages": 1, "data": data}]})
+            return
         files = []
         for index, pages in enumerate(documents, start=1):
             name = f"scan_{stamp}.pdf" if len(documents) == 1 else f"scan_{stamp}_{index}.pdf"

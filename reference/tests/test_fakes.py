@@ -2,7 +2,7 @@ import time
 import unittest
 
 from scanbridge_ref import fakes
-from scanbridge_ref.fakes import FAKE_SCANNERS, ScanError, simulate, validate
+from scanbridge_ref.fakes import FAKE_SCANNERS, MAX_PIXELS, ScanError, pixel_count, simulate, validate
 
 
 def by_id(scanner_id):
@@ -42,7 +42,7 @@ class ValidateTests(unittest.TestCase):
         scanner, settings = validate({"scanner": "fake:feeder"})
         self.assertEqual(scanner.id, "fake:feeder")
         self.assertEqual(settings, {"source": "feeder", "duplex": False, "colorMode": "color",
-                                    "resolution": 150, "format": "pdf", "extras": {},
+                                    "resolution": 150, "format": "pdf", "area": None, "extras": {},
                                     "ocr": False, "ocrLanguages": []})
 
     def test_400s(self):
@@ -141,7 +141,7 @@ class SimulateTests(unittest.TestCase):
 
 class OcrFakeTests(unittest.TestCase):
     def test_eight_scanners_with_fake_ocr_last(self):
-        self.assertEqual([s.id for s in FAKE_SCANNERS][-1], "fake:ocr")
+        self.assertEqual([s.id for s in FAKE_SCANNERS][7], "fake:ocr")
         self.assertEqual(by_id("fake:ocr").describe(), {
             "id": "fake:ocr", "name": "Fake OCR Scanner", "sources": ["flatbed"], "duplex": False,
             "colorModes": ["color", "gray", "bw"], "resolutions": [150, 300, 600], "extras": [],
@@ -165,6 +165,65 @@ class OcrFakeTests(unittest.TestCase):
         _, settings = validate({"scanner": "fake:flatbed", "ocr": False, "ocrLanguages": ["xyz"]})
         self.assertIs(settings["ocr"], False)
 
+
+class PhotoTests(unittest.TestCase):
+    def assertStatus(self, body, status):
+        with self.assertRaises(ScanError) as ctx:
+            validate(body)
+        self.assertEqual(ctx.exception.status, status)
+        self.assertTrue(ctx.exception.message)
+        return ctx.exception.message
+
+    def test_describe_lists_formats_and_areas_only_for_the_photo_scanner(self):
+        self.assertEqual(by_id("fake:photo").describe(), {
+            "id": "fake:photo", "name": "Fake Photo Scanner", "sources": ["flatbed"], "duplex": False,
+            "colorModes": ["color", "gray", "bw"], "resolutions": [150, 300, 600, 1200], "extras": [],
+            "formats": ["pdf", "jpeg", "png"], "areas": ["a4", "10x15"],
+        })
+        for scanner in FAKE_SCANNERS:
+            if scanner.id != "fake:photo":
+                self.assertNotIn("formats", scanner.describe())
+                self.assertNotIn("areas", scanner.describe())
+
+    def test_the_photo_scanner_comes_after_the_other_eight(self):
+        self.assertEqual([s.id for s in FAKE_SCANNERS][7:], ["fake:ocr", "fake:photo"])
+
+    def test_defaults_are_pdf_and_the_first_area(self):
+        _, settings = validate({"scanner": "fake:photo"})
+        self.assertEqual((settings["format"], settings["area"]), ("pdf", "a4"))
+
+    def test_an_image_request_is_accepted(self):
+        _, settings = validate({"scanner": "fake:photo", "format": "jpeg", "area": "10x15", "resolution": 1200})
+        self.assertEqual((settings["format"], settings["area"], settings["resolution"]), ("jpeg", "10x15", 1200))
+        validate({"scanner": "fake:photo", "format": "png", "colorMode": "bw"})
+
+    def test_refusals_are_422(self):
+        for body in ({"format": "tiff"}, {"area": "a5"}, {"format": "jpeg", "colorMode": "bw"},
+                     {"format": "jpeg", "ocr": True}, {"format": "png", "ocr": True},
+                     {"area": "a4", "resolution": 1200}, {"format": "png", "area": "a4", "resolution": 1200}):
+            self.assertStatus({"scanner": "fake:photo", **body}, 422)
+
+    def test_scanners_without_the_fields_refuse_them(self):
+        self.assertStatus({"scanner": "fake:flatbed", "format": "jpeg"}, 422)
+        self.assertStatus({"scanner": "fake:flatbed", "area": "a4"}, 422)
+
+    def test_a_wrong_area_type_is_400_before_any_422(self):
+        self.assertStatus({"scanner": "fake:photo", "area": 5, "format": "jpeg", "colorMode": "bw"}, 400)
+
+    def test_the_size_limit_message_says_what_to_change(self):
+        message = self.assertStatus({"scanner": "fake:photo", "area": "a4", "resolution": 1200}, 422)
+        self.assertEqual(message, "A4 at 1200 dpi is too large (139 megapixels; the limit is 100): "
+                                  "choose a smaller area or a lower resolution.")
+
+    def test_pixel_count_and_the_limit(self):
+        self.assertEqual(pixel_count("a4", 1200), 9921 * 14031)
+        self.assertEqual(pixel_count("10x15", 1200), 4724 * 7087)
+        self.assertEqual(MAX_PIXELS, 100_000_000)
+        self.assertLess(pixel_count("10x15", 1200), MAX_PIXELS)
+
+    def test_an_image_scan_is_one_page_and_an_images_message(self):
+        scanner, settings = validate({"scanner": "fake:photo", "format": "jpeg", "area": "10x15"})
+        self.assertEqual(simulate(scanner, settings), ([["Flatbed page 1"]], False, "1 image scanned."))
 
 if __name__ == "__main__":
     unittest.main()

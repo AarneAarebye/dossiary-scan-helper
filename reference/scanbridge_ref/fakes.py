@@ -6,6 +6,17 @@ from dataclasses import dataclass
 COLOR_MODES = ("color", "gray", "bw")
 RESOLUTIONS = (150, 300, 600)
 
+# Scan areas (PROTOCOL.md "Formats and areas"): id -> (width mm, height mm, label), and the
+# reference helper's size limit in pixels (inclusive).
+AREAS = {"a4": (210, 297, "A4"), "a5": (148, 210, "A5"), "a6": (105, 148, "A6"),
+         "10x15": (100, 150, "10 x 15 cm"), "13x18": (130, 180, "13 x 18 cm")}
+MAX_PIXELS = 100_000_000
+
+
+def pixel_count(area, dpi):
+    width_mm, height_mm, _ = AREAS[area]
+    return round(width_mm / 25.4 * dpi) * round(height_mm / 25.4 * dpi)
+
 
 class ScanError(Exception):
     """A protocol error: HTTP status plus a message for a person."""
@@ -31,6 +42,8 @@ class FakeScanner:
     jam_after: int | None = None
     empty: bool = False
     ocr_languages: tuple = ()
+    formats: tuple = ("pdf",)
+    areas: tuple = ()
 
     def describe(self) -> dict:
         entry = {
@@ -38,14 +51,18 @@ class FakeScanner:
             "colorModes": list(self.color_modes), "resolutions": list(self.resolutions),
             "extras": list(self.extras),
         }
+        if self.formats != ("pdf",):
+            entry["formats"] = list(self.formats)
+        if self.areas:
+            entry["areas"] = list(self.areas)
         if self.ocr_languages:
             entry["ocr"] = {"languages": list(self.ocr_languages)}
         return entry
 
 
-def _scanner(id, name, sources, duplex=False, extras=(), sheets=(), **kw):
+def _scanner(id, name, sources, duplex=False, extras=(), sheets=(), resolutions=RESOLUTIONS, **kw):
     return FakeScanner(id=id, name=name, sources=sources, duplex=duplex, color_modes=COLOR_MODES,
-                       resolutions=RESOLUTIONS, extras=extras, sheets=sheets, **kw)
+                       resolutions=resolutions, extras=extras, sheets=sheets, **kw)
 
 
 FAKE_SCANNERS = (
@@ -60,6 +77,8 @@ FAKE_SCANNERS = (
     _scanner("fake:offline", "Fake Offline Scanner", ("flatbed",), offline=True),
     _scanner("fake:empty", "Fake Empty Feeder", ("feeder",), empty=True),
     _scanner("fake:ocr", "Fake OCR Scanner", ("flatbed",), ocr_languages=("deu", "eng")),
+    _scanner("fake:photo", "Fake Photo Scanner", ("flatbed",), resolutions=(150, 300, 600, 1200),
+             formats=("pdf", "jpeg", "png"), areas=("a4", "10x15")),
 )
 
 EMPTY_FEEDER_MESSAGE = "No paper in the feeder."
@@ -77,7 +96,7 @@ def validate(body):
     if scanner is None:
         raise ScanError(404, f"No scanner with id “{scanner_id}”.")
 
-    for key in ("source", "colorMode", "format"):
+    for key in ("source", "colorMode", "format", "area"):
         if key in body and not isinstance(body[key], str):
             raise ScanError(400, f"“{key}” must be a string.")
     if "resolution" in body and (not isinstance(body["resolution"], int) or isinstance(body["resolution"], bool)):
@@ -103,8 +122,15 @@ def validate(body):
     if resolution not in scanner.resolutions:
         raise ScanError(422, f"{scanner.name} can't scan at {resolution} dpi.")
     fmt = body.get("format", "pdf")
-    if fmt != "pdf":
-        raise ScanError(422, f"Format “{fmt}” isn't supported; use pdf.")
+    if fmt not in scanner.formats:
+        raise ScanError(422, f"{scanner.name} can't make {fmt} files; it offers {', '.join(scanner.formats)}.")
+    if "area" in body and not scanner.areas:
+        raise ScanError(422, f"{scanner.name} has no scan areas.")
+    area = body.get("area", scanner.areas[0] if scanner.areas else None)
+    if area is not None and area not in scanner.areas:
+        raise ScanError(422, f"{scanner.name} doesn't offer the area “{area}”.")
+    if fmt == "jpeg" and color_mode == "bw":
+        raise ScanError(422, "JPEG can't be black and white; use PNG or PDF.")
     duplex = body.get("duplex", False)
     if duplex and not (scanner.duplex and source == "feeder"):
         raise ScanError(422, f"{scanner.name} can't scan both sides from the {source}.")
@@ -112,6 +138,8 @@ def validate(body):
         if on and name not in scanner.extras:
             raise ScanError(422, f"{scanner.name} doesn't offer “{name}”.")
     ocr = body.get("ocr", False)
+    if ocr and fmt != "pdf":
+        raise ScanError(422, "A searchable PDF can't be made from an image; scan to PDF instead.")
     if ocr and not scanner.ocr_languages:
         raise ScanError(422, f"{scanner.name} can't make a searchable PDF.")
     if ocr:
@@ -119,8 +147,14 @@ def validate(body):
             if lang not in scanner.ocr_languages:
                 raise ScanError(422, f"{scanner.name} has no OCR language “{lang}”.")
 
+    if area is not None:
+        pixels = pixel_count(area, resolution)
+        if pixels > MAX_PIXELS:
+            raise ScanError(422, f"{AREAS[area][2]} at {resolution} dpi is too large ({pixels / 1e6:.0f} megapixels; "
+                                 f"the limit is {MAX_PIXELS // 1_000_000}): choose a smaller area or a lower resolution.")
+
     return scanner, {"source": source, "duplex": duplex, "colorMode": color_mode,
-                     "resolution": resolution, "format": fmt, "extras": dict(extras),
+                     "resolution": resolution, "format": fmt, "area": area, "extras": dict(extras),
                      "ocr": ocr, "ocrLanguages": list(languages)}
 
 
@@ -136,6 +170,8 @@ def simulate(scanner, settings):
         time.sleep(scanner.delay)
     if scanner.empty:
         raise ScanError(500, EMPTY_FEEDER_MESSAGE)
+    if settings["format"] != "pdf":
+        return [["Flatbed page 1"]], False, "1 image scanned."
 
     if settings["source"] == "flatbed":
         pages = ["Flatbed page 1"]
