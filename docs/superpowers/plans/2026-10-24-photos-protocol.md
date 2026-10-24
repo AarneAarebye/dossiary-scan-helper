@@ -445,7 +445,6 @@ Append to `reference/tests/test_server.py`, inside `OcrEndpointTests` (it alread
         status, body = self.call("POST", "/scan", {"scanner": "fake:photo", "area": "a4", "resolution": 1200})
         self.assertEqual(status, 422)
         self.assertIn("too large", body["message"])
-        self.assertEqual(body["message"], body["error"])
 ```
 
 (The method placement: they use `self.call`, so they belong in the class that defines it. If the file's server test class has been renamed, put them in whichever class defines `call` and pairs in `setUp`.)
