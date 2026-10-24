@@ -12,9 +12,16 @@ scanning and hands the result to Dossiary over a local connection.
 | Path | What it is |
 |---|---|
 | [`PROTOCOL.md`](PROTOCOL.md) | The bridge protocol every helper implements. |
-| `reference/` | A minimal Python helper with fake scanners, for developing Dossiary and testing the suite. Includes `fake:ocr`, which makes searchable PDFs in the background (`GET /ocr/<job>`), and `fake:photo`, which scans to JPEG or PNG over a chosen scan area (optional in the protocol; the macOS helper doesn't offer it yet). Standard library only. |
+| `reference/` | A minimal Python helper with fake scanners, for developing Dossiary and testing the suite. Includes `fake:ocr`, which makes searchable PDFs in the background (`GET /ocr/<job>`), and `fake:photo`, which scans to JPEG or PNG over a chosen scan area (optional in the protocol; the macOS helper offers it for flatbeds). Standard library only. |
 | `conformance/` | Tests any running helper over HTTP against `PROTOCOL.md`. |
 | `macos/` | The macOS helper: a Swift menu bar app using ImageCaptureCore, which can also use an iX500 on a Raspberry Pi running scanix500-server ("Add network scanner…"). Its menu and panels are in seven languages (English, German, Spanish, French, Chinese Simplified and Traditional, Armenian). See [macos/README.md](macos/README.md). |
+
+The macOS helper does photos too. **Photos.** A scanner that has a flatbed can scan to JPEG or PNG (`format`) over a chosen area
+(`area`): local scanners offer `full` (the whole glass, the default) and the standard areas that fit
+(`a4`, `a5`, `a6`, `10x15`, `13x18`), and the Pi's scanners show the formats and areas their server
+offers. Images come only from the flatbed (the feeder is PDF only), JPEG can't be black & white,
+images are not made searchable, and a scan over 100 megapixels is refused with a message saying what
+to change. The protocol text is in `PROTOCOL.md` ("Formats and areas").
 
 ## Run the reference helper
 

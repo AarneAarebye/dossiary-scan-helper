@@ -20,3 +20,13 @@ Use the signed, notarized app from `macos/dist/`, a real scanner, and the curren
 - [ ] Open at Login: after logging out and in, the icon is back.
 - [ ] Open log: the log shows the scans and no codes, tokens or page data.
 - [ ] Languages: set Dossiary Scan Helper to German in System Settings › General › Language & Region › Applications, reopen it: the menu, "Pair a browser…" and "Add network scanner…" are German. Do the same with Armenian (add Հայերեն under Preferred Languages first if macOS doesn't offer it for the app). Set it back.
+
+## Photo scans (0.5.0)
+
+- [ ] On a local flatbed (Canon MF650C): `GET /scanners` lists `formats` and `areas`, with `full` first.
+- [ ] A JPEG and a PNG scan at `full`, `10x15` and `a5` give images of the expected pixel size (width mm / 25.4 * dpi).
+- [ ] A print placed against the glass's corner mark appears flush at the top-left of the `10x15` image.
+- [ ] A black & white PNG is 1-bit.
+- [ ] A PDF scan from the flatbed and from the feeder is unchanged.
+- [ ] An image request from the feeder gets the 422 "Images can only be scanned from the flatbed."
+- [ ] Through the helper to the Pi: the 8800F lists its formats and areas, and a `10x15` JPEG scan comes back (use a build on a free port, not the installed helper on 8766).
