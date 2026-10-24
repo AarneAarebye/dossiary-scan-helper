@@ -1,5 +1,6 @@
 import time
 import unittest
+from unittest import mock
 
 from scanbridge_ref import fakes
 from scanbridge_ref.fakes import FAKE_SCANNERS, MAX_PIXELS, ScanError, pixel_count, simulate, validate
@@ -227,3 +228,19 @@ class PhotoTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ImagesNeedTheFlatbedTests(unittest.TestCase):
+    def test_an_image_from_the_feeder_is_422_and_the_flatbed_and_pdf_are_fine(self):
+        both = fakes.FakeScanner(
+            id="fake:both", name="Both", sources=("flatbed", "feeder"), duplex=False,
+            color_modes=fakes.COLOR_MODES, resolutions=fakes.RESOLUTIONS, extras=(), sheets=("Sheet 1",),
+            formats=("pdf", "jpeg", "png"))
+        with mock.patch.object(fakes, "FAKE_SCANNERS", (both,)):
+            for fmt in ("jpeg", "png"):
+                with self.assertRaises(ScanError) as ctx:
+                    validate({"scanner": "fake:both", "source": "feeder", "format": fmt})
+                self.assertEqual((ctx.exception.status, ctx.exception.message),
+                                 (422, "Images can only be scanned from the flatbed."))
+            validate({"scanner": "fake:both", "source": "flatbed", "format": "jpeg"})
+            validate({"scanner": "fake:both", "source": "feeder"})  # a PDF from the feeder is fine
