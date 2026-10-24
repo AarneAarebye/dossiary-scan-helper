@@ -38,7 +38,7 @@ def origin_allowed(origin):
 
 
 def _error_body(message):
-    return {"ok": False, "partial": False, "message": message, "error": message}
+    return {"ok": False, "partial": False, "message": message}
 
 
 class Handler(BaseHTTPRequestHandler):

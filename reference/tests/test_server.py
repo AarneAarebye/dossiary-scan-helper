@@ -92,7 +92,6 @@ class OcrEndpointTests(unittest.TestCase):
         status, body = self.call("POST", "/scan", {"scanner": "fake:photo", "area": "a4", "resolution": 1200})
         self.assertEqual(status, 422)
         self.assertIn("too large", body["message"])
-        self.assertEqual(body["message"], body["error"])
 
 
 if __name__ == "__main__":
