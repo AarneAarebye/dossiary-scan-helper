@@ -105,18 +105,22 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
             for type in types where type == .flatbed || type == .documentFeeder {
                 try await select(device, type)
                 let unit = device.selectedFunctionalUnit
+                unit.measurementUnit = .inches
+                let glass = unit.physicalSize
                 units.append(UnitCapabilities(
                     source: type == .documentFeeder ? .feeder : .flatbed,
                     duplex: (unit as? ICScannerFunctionalUnitDocumentFeeder)?.supportsDuplexScanning ?? false,
                     bitDepths: Array(unit.supportedBitDepths), resolutions: Array(unit.supportedResolutions),
-                    preferredResolutions: Array(unit.preferredResolutions)))
+                    preferredResolutions: Array(unit.preferredResolutions),
+                    physicalSizeMM: type == .flatbed && glass.width > 0 && glass.height > 0
+                        ? SizeMM(width: glass.width * 25.4, height: glass.height * 25.4) : nil))
             }
             guard let info = CapabilityMapping.scannerInfo(id: id, name: name, units: units) else {
                 log("\(name) has no flatbed or document feeder; not offered.")
                 return
             }
             infos[id] = info
-            log("Found \(name): \(info.sources.map(\.rawValue).joined(separator: ", ")), \(info.resolutions) dpi.")
+            log("Found \(name): \(info.sources.map(\.rawValue).joined(separator: ", ")), \(info.resolutions) dpi, \(info.formats.joined(separator: "/")) formats.")
             changeHandler?()
         } catch {
             log("Couldn't read the settings of \(name): \(error.localizedDescription)")
@@ -154,9 +158,16 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
         device.transferMode = .fileBased
         device.downloadsDirectory = folder
         device.documentName = "page"
-        device.documentUTI = (settings.colorMode == .bw ? UTType.png : UTType.jpeg).identifier
+        device.documentUTI = CapabilityMapping.documentType(format: settings.format, colorMode: settings.colorMode).identifier
 
         let (urls, error) = try await runScan(device, id: id)
+        if settings.format != "pdf" {
+            guard let url = urls.first else {
+                throw ProtocolError(500, error.map { "The scan failed: \($0.localizedDescription)" } ?? "The scanner returned no image.")
+            }
+            let data = try ImageEncoding.normalized(try Data(contentsOf: url), as: settings.format, dpi: settings.resolution)
+            return ScanDocuments(documents: [], partialMessage: nil, image: ImageFile(data: data, format: settings.format))
+        }
         let pages = try urls.map { PageImage(data: try Data(contentsOf: $0), dpi: settings.resolution) }
         return try ScanOutcome.documents(pages: pages, errorMessage: error?.localizedDescription, source: settings.source)
     }
@@ -175,8 +186,10 @@ public final class ImageCaptureBackend: NSObject, ScannerBackend, @unchecked Sen
             let size = feeder.documentSize
             unit.scanArea = NSRect(x: 0, y: 0, width: size.width, height: size.height)
         } else {
-            let size = unit.physicalSize
-            unit.scanArea = NSRect(x: 0, y: 0, width: size.width, height: size.height)
+            let glass = unit.physicalSize
+            let area = CapabilityMapping.scanAreaInches(area: settings.area,
+                                                        glass: (width: glass.width, height: glass.height))
+            unit.scanArea = NSRect(x: 0, y: 0, width: area.width, height: area.height)
         }
     }
 
