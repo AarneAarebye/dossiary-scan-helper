@@ -1802,6 +1802,46 @@
         }
       }
     },
+    "Sound on button press": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ton bei Tastendruck"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonido al pulsar un botón"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son à l'appui sur un bouton"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按下按钮时发出声音"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按下按鈕時發出聲音"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ձայն կոճակը սեղմելիս"
+          }
+        }
+      }
+    },
     "Last button scan: %@": {
       "localizations": {
         "de": {

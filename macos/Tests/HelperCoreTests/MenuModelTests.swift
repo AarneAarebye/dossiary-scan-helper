@@ -56,6 +56,21 @@ import Testing
     #expect(full[add + 4] == .info("Button scans can't be saved: disk full"))
 }
 
+@Test func buttonSoundEntryFollowsTheFolderAction() {
+    let servers = [NetworkServerEntry(id: "1", name: "attic", status: .connected)]
+    for on in [true, false] {
+        let e = MenuModel.entries(scanners: [], port: 8766, fake: false, pairedCount: 0, startAtLogin: true,
+                                  networkServers: servers, buttonScanFolder: "Scans", buttonSound: on)
+        let folder = e.firstIndex(of: .action("Folder for button scans…", .chooseButtonScanFolder, checked: false, enabled: true))!
+        #expect(e[folder + 1] == .action("Sound on button press", .toggleButtonSound, checked: on, enabled: true))
+    }
+    let none = MenuModel.entries(scanners: [], port: 8766, fake: false, pairedCount: 0, startAtLogin: true,
+                                 networkServers: servers, buttonScanFolder: "Scans")
+    #expect(!none.contains { if case .action(_, .toggleButtonSound, _, _) = $0 { return true }; return false })
+    let fake = MenuModel.entries(scanners: [], port: 8766, fake: true, pairedCount: 0, startAtLogin: nil, buttonSound: true)
+    #expect(!fake.contains { if case .action(_, .toggleButtonSound, _, _) = $0 { return true }; return false })
+}
+
 @Test func noButtonScanEntriesInFakeMode() {
     let entries = MenuModel.entries(scanners: [], port: 8766, fake: true, pairedCount: 0, startAtLogin: nil,
                                     buttonScanFolder: "Scans", lastButtonScan: "x.pdf", buttonScanProblem: .cannotSave(reason: "r"))
@@ -69,7 +84,7 @@ import Testing
                                     startAtLogin: true,
                                     networkServers: [NetworkServerEntry(id: "1", name: "attic", status: .unreachable)],
                                     buttonScanFolder: "Scans", lastButtonScan: "a.pdf",
-                                    buttonScanProblem: .cannotSave(reason: "r"), texts: marked)
+                                    buttonScanProblem: .cannotSave(reason: "r"), buttonSound: true, texts: marked)
     var texts: [String] = []
     for entry in entries {
         switch entry {

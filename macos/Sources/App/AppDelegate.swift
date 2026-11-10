@@ -132,6 +132,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSWorkspace.shared.open(Log.shared.url)
         case .addNetworkScanner:
             networkPanel?.show()
+        case .toggleButtonSound:
+            break   // wired in the sound task
         case .chooseButtonScanFolder:
             guard let folder = runtime.buttonScanFolder else { return }
             let panel = NSOpenPanel()

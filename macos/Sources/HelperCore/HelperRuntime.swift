@@ -10,6 +10,7 @@ public final class HelperRuntime: @unchecked Sendable {
     public let remote: RemoteScanners?
     public let buttonScanFolder: ButtonScanFolder?
     public let buttonScanPickup: ButtonScanPickup?
+    public let buttonPressSetting: ButtonPressSetting?
     public let router: Router
     public let server: HTTPServer
     private let log: Log
@@ -25,6 +26,7 @@ public final class HelperRuntime: @unchecked Sendable {
             remote = nil
             buttonScanFolder = nil
             buttonScanPickup = nil
+            buttonPressSetting = nil
         } else {
             backend = ImageCaptureBackend(log: { [log] in log.write($0) })
             pairing = PairingStore(mode: .real(fileURL: PairingStore.defaultFileURL), log: { [log] in log.write($0) })
@@ -33,6 +35,7 @@ public final class HelperRuntime: @unchecked Sendable {
             remote = RemoteScanners(store: store, log: write)
             let folder = ButtonScanFolder()
             buttonScanFolder = folder
+            buttonPressSetting = ButtonPressSetting()
             buttonScanPickup = ButtonScanPickup(store: store, folder: folder, ledger: PickedUpLedger(fileURL: PickedUpLedger.defaultFileURL),
                                                 log: write)
         }

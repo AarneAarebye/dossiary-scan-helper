@@ -15,6 +15,9 @@ public enum ButtonScanProblem: Equatable, Sendable {
     }
 }
 
+/// The scanner button a server reports on /health.
+public enum ButtonPress: String, Sendable { case color, bw, custom, finish }
+
 public struct PickedUpScan: Equatable, Sendable {
     public let name: String
     public let file: URL
@@ -40,10 +43,12 @@ public final class ButtonScanPickup: @unchecked Sendable {
     private let transport: RemoteScanners.TransportFactory
     private let clock: @Sendable () -> Date
     private var handler: @Sendable (PickedUpScan) -> Void
+    private var pressHandler: @Sendable (ButtonPress) -> Void
     private let log: @Sendable (String) -> Void
 
     private let lock = NSLock()
     private var running = false
+    private var lastSeq: [String: Int] = [:]   // per server id; absent = no baseline yet
     private var firstSeen: [String: Date] = [:]
     private var savedThisSession: Set<String> = []   // keys saved by this run, whatever the ledger managed to write
     private var oversizeLogged: Set<String> = []
@@ -56,9 +61,10 @@ public final class ButtonScanPickup: @unchecked Sendable {
                 transport: @escaping RemoteScanners.TransportFactory = { URLSessionRemoteTransport(host: $0.host, port: $0.port, pin: $0.fingerprint) },
                 clock: @escaping @Sendable () -> Date = Date.init,
                 onPickedUp: @escaping @Sendable (PickedUpScan) -> Void = { _ in },
+                onButtonPress: @escaping @Sendable (ButtonPress) -> Void = { _ in },
                 log: @escaping @Sendable (String) -> Void = { _ in }) {
         self.store = store; self.folder = folder; self.ledger = ledger; self.transport = transport
-        self.clock = clock; self.handler = onPickedUp; self.log = log
+        self.clock = clock; self.handler = onPickedUp; self.pressHandler = onButtonPress; self.log = log
     }
 
     /// Called after each scan is saved. Settable after init, for a notifier created later.
@@ -67,10 +73,16 @@ public final class ButtonScanPickup: @unchecked Sendable {
         set { lock.withLock { handler = newValue } }
     }
 
+    /// Called when a paired server reports a new button press. Settable after init, for a player created later.
+    public var onButtonPress: @Sendable (ButtonPress) -> Void {
+        get { lock.withLock { pressHandler } }
+        set { lock.withLock { pressHandler = newValue } }
+    }
+
     public var lastProblem: ButtonScanProblem? { lock.withLock { problem } }
     public var lastScan: PickedUpScan? { lock.withLock { last } }
 
-    public func start(interval: TimeInterval = 5) {
+    public func start(interval: TimeInterval = 1) {
         lock.withLock {
             loop?.cancel()
             loop = Task { [weak self] in
@@ -117,13 +129,35 @@ public final class ButtonScanPickup: @unchecked Sendable {
 
     private func known(_ key: String) -> Bool { ledger.contains(key) || lock.withLock { savedThisSession.contains(key) } }
 
+    /// Remembers the server's press counter; a change after the first value is a press.
+    private func noteButtonEvent(_ value: Any?, server: RemoteServer) {
+        guard let event = value as? [String: Any], let number = event["seq"] as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID(), CFNumberIsFloatType(number) == false else { return }
+        let seq = number.intValue
+        let button = (event["button"] as? String).flatMap(ButtonPress.init(rawValue:))
+        let callback: (@Sendable (ButtonPress) -> Void)? = lock.withLock {
+            let previous = lastSeq[server.id]
+            lastSeq[server.id] = seq
+            guard let previous, previous != seq, button != nil else { return nil }
+            return pressHandler
+        }
+        if let callback, let button { callback(button) }
+    }
+
     private func pickUp(from server: RemoteServer, problems: inout Problems) async {
         guard let token = store.token(for: server.id) else { return }
         let link = transport(server)
         let scans: [[String: Any]]
         do {
-            let health = try await link.send(RemoteRequest(method: "GET", path: "/health", timeout: 3))
+            let health: RemoteReply
+            do {
+                health = try await link.send(RemoteRequest(method: "GET", path: "/health", token: token, timeout: 3))
+            } catch {
+                lock.withLock { lastSeq[server.id] = nil }   // after a reconnect the next value is a baseline again
+                throw error
+            }
             guard health.status == 200, health.json?["buttonScans"] as? Bool == true else { return }
+            noteButtonEvent(health.json?["buttonEvent"], server: server)
             let list = try await link.send(RemoteRequest(method: "GET", path: "/button-scans", token: token, timeout: 10))
             guard list.status == 200, let listed = list.json?["scans"] as? [[String: Any]] else {
                 if list.status != 401 { log("Button scans: \(server.name) gave status \(list.status) for the list.") }

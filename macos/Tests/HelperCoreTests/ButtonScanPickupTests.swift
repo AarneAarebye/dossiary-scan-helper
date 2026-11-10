@@ -23,6 +23,8 @@ private final class Script: @unchecked Sendable {
     private let lock = NSLock()
     private var _items: [Item] = []
     var buttonScans: Bool? = true
+    var buttonEvent: [String: Any]?
+    var requireTokenForEvent = true
     var healthError: RemoteError?
     var listStatus = 200
     var deleteStatus = 204
@@ -45,6 +47,7 @@ private final class Script: @unchecked Sendable {
             if let healthError { throw healthError }
             var object: [String: Any] = ["ok": true]
             if let buttonScans { object["buttonScans"] = buttonScans }
+            if let buttonEvent, !requireTokenForEvent || r.token != nil { object["buttonEvent"] = buttonEvent }
             return (200, try JSONSerialization.data(withJSONObject: object))
         }
         if r.path == "/button-scans" {
@@ -83,6 +86,7 @@ private struct Rig {
     let transport: FakeBinaryTransport
     let picked = Box()
     let logs = Box()
+    let presses = PressBox()
     let pickup: ButtonScanPickup
 
     final class Box: @unchecked Sendable {
@@ -94,6 +98,13 @@ private struct Rig {
         var lines: [String] { lock.withLock { _lines } }
     }
 
+    final class PressBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _p: [ButtonPress] = []
+        func add(_ p: ButtonPress) { lock.withLock { _p.append(p) } }
+        var all: [ButtonPress] { lock.withLock { _p } }
+    }
+
     init() {
         let name = "ButtonScanPickupTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -102,9 +113,9 @@ private struct Rig {
         (store, server) = pairedStore()
         let script = script
         transport = FakeBinaryTransport { try script.handle($0) }
-        let transport = transport, clock = clock, picked = picked, logs = logs
+        let transport = transport, clock = clock, picked = picked, logs = logs, presses = presses
         pickup = ButtonScanPickup(store: store, folder: folder, ledger: ledger, transport: { _ in transport },
-                                  clock: { clock.now }, onPickedUp: { picked.add($0) }, log: { logs.add($0) })
+                                  clock: { clock.now }, onPickedUp: { picked.add($0) }, onButtonPress: { presses.add($0) }, log: { logs.add($0) })
     }
 
     func key(_ id: String) -> String { "\(server.id)/\(id)" }
@@ -124,8 +135,8 @@ private struct Rig {
     #expect(rig.pickup.lastScan == rig.picked.scans.first)
     #expect(rig.pickup.lastProblem == nil)
     let sent = rig.transport.sent
-    #expect(sent[0].token == nil)
-    #expect(sent[1...].allSatisfy { $0.token == "tok-scanner" })
+    #expect(sent[0].token == "tok-scanner")
+    #expect(sent.allSatisfy { $0.token == "tok-scanner" })
 }
 
 @Test func aServerWithoutButtonScansOnlyGetsAHealthRequest() async {
@@ -569,4 +580,91 @@ private func waitUntil(_ condition: @Sendable () -> Bool) async {
     await rig.pickup.pickUpOnce()
     #expect(late.scans.count == 1)
     #expect(rig.picked.scans.isEmpty)
+}
+
+// MARK: button presses
+
+private func event(_ seq: Any, _ button: Any? = nil) -> [String: Any] {
+    var e: [String: Any] = ["seq": seq]
+    if let button { e["button"] = button }
+    return e
+}
+
+@Test func theFirstValueIsOnlyABaselineAndChangesPlay() async {
+    let rig = Rig()
+    rig.script.buttonEvent = event(3, "color")
+    await rig.pickup.pickUpOnce()
+    #expect(rig.presses.all.isEmpty)
+    rig.script.buttonEvent = event(4, "bw")
+    await rig.pickup.pickUpOnce()
+    #expect(rig.presses.all == [.bw])
+    await rig.pickup.pickUpOnce()
+    #expect(rig.presses.all == [.bw])
+    rig.script.buttonEvent = event(1, "finish")   // server restarted
+    await rig.pickup.pickUpOnce()
+    #expect(rig.presses.all == [.bw, .finish])
+    rig.script.buttonEvent = event(9, "custom")   // several presses in one second: one sound
+    await rig.pickup.pickUpOnce()
+    #expect(rig.presses.all == [.bw, .finish, .custom])
+}
+
+@Test func badButtonEventsPlayNothingAndScansAreStillPickedUp() async {
+    let bad: [[String: Any]] = [event(5), event(6, "x"), event("a", "color"), event(true, "color"), event(7, 3)]
+    let rig = Rig()
+    rig.script.buttonEvent = event(1, "color")
+    await rig.pickup.pickUpOnce()
+    for value in bad {
+        rig.script.buttonEvent = value
+        rig.script.add(String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(24)), name: "s.pdf")
+        await rig.pickup.pickUpOnce()
+    }
+    #expect(rig.presses.all.isEmpty)
+    #expect(rig.picked.scans.count == bad.count)
+}
+
+@Test func aServerWithoutButtonScansPlaysNothing() async {
+    let rig = Rig()
+    rig.script.buttonScans = false
+    rig.script.buttonEvent = event(1, "color")
+    await rig.pickup.pickUpOnce()
+    rig.script.buttonEvent = event(2, "color")
+    await rig.pickup.pickUpOnce()
+    #expect(rig.presses.all.isEmpty)
+}
+
+@Test func aReconnectOnlyRemembersTheCounter() async {
+    let rig = Rig()
+    rig.script.buttonEvent = event(1, "color")
+    await rig.pickup.pickUpOnce()
+    rig.script.healthError = .unreachable("down")
+    await rig.pickup.pickUpOnce()
+    rig.script.healthError = nil
+    rig.script.buttonEvent = event(5, "bw")
+    await rig.pickup.pickUpOnce()
+    #expect(rig.presses.all.isEmpty)
+    rig.script.buttonEvent = event(6, "custom")
+    await rig.pickup.pickUpOnce()
+    #expect(rig.presses.all == [.custom])
+}
+
+@Test func twoServersKeepSeparateCounters() async {
+    let store = RemoteServerStore(fileURL: nil, secrets: MemorySecretStore())
+    let a = RemoteServer(name: "a", host: "a.local", port: 8767, fingerprint: String(repeating: "AB", count: 32))
+    let b = RemoteServer(name: "b", host: "b.local", port: 8767, fingerprint: String(repeating: "CD", count: 32))
+    try! store.add(a, token: "ta"); try! store.add(b, token: "tb")
+    let sa = Script(), sb = Script()
+    let ta = FakeBinaryTransport { try sa.handle($0) }, tb = FakeBinaryTransport { try sb.handle($0) }
+    let presses = Rig.PressBox()
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let pickup = ButtonScanPickup(store: store, folder: ButtonScanFolder(defaults: UserDefaults(suiteName: UUID().uuidString)!, fallback: dir),
+                                  ledger: PickedUpLedger(fileURL: nil),
+                                  transport: { $0.host == "a.local" ? ta : tb }, onButtonPress: { presses.add($0) })
+    sa.buttonEvent = event(1, "color"); sb.buttonEvent = event(100, "color")
+    await pickup.pickUpOnce()
+    sa.buttonEvent = event(2, "bw")
+    await pickup.pickUpOnce()
+    #expect(presses.all == [.bw])
+    sb.buttonEvent = event(101, "finish")
+    await pickup.pickUpOnce()
+    #expect(presses.all == [.bw, .finish])
 }

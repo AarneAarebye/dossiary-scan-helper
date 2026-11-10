@@ -348,6 +348,17 @@ token from pairing):
   done). A helper should use the list's `ocr` field rather than the header.
 - `DELETE /button-scans/<id>` → `204`.
 
+To let a helper react to a press (for example with a sound), `GET /health`
+also carries `"buttonEvent": {"seq": <integer>, "button": "color" | "bw" |
+"custom" | "finish"}` once a button was pressed since the server started. The
+server sends it only to callers that present a valid pairing token in
+`Authorization: Bearer <token>`; others get the usual reply without it.
+`seq` counts presses in memory only, so it starts again when the server
+restarts. A helper treats any change of `seq` as a press (several presses
+between two polls make one change), takes the first value it sees from a
+server, also after a reconnect, as a baseline without reacting, and ignores
+an unknown `button` value. It polls `/health` about once a second.
+
 An `id` matches `\A[A-Za-z0-9_-]{22,}\Z`; a helper builds no request path
 from any other string. An unknown or already deleted id, or one that doesn't
 match, gets `404` (a `DELETE` answered `404` counts as done). A missing or
