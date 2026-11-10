@@ -37,3 +37,24 @@ let piPhotoScanner: [String: Any] = ["id": "sane:canoscan-8800f", "name": "Canon
                                      "duplex": false, "colorModes": ["color", "gray", "bw"],
                                      "resolutions": [150, 300, 600, 1200], "extras": [],
                                      "formats": ["pdf", "jpeg", "png"], "areas": ["a4", "a5", "a6", "10x15", "13x18"]]
+
+/// Like FakeTransport, but the handler answers raw bytes (a PDF, or JSON it encoded itself).
+final class FakeBinaryTransport: RemoteTransport, @unchecked Sendable {
+    private let lock = NSLock()
+    private var requests: [RemoteRequest] = []
+    let fingerprint: String
+    let handler: @Sendable (RemoteRequest) throws -> (Int, Data)
+
+    init(fingerprint: String = String(repeating: "AB", count: 32),
+         handler: @escaping @Sendable (RemoteRequest) throws -> (Int, Data)) {
+        self.fingerprint = fingerprint; self.handler = handler
+    }
+
+    var sent: [RemoteRequest] { lock.withLock { requests } }
+
+    func send(_ request: RemoteRequest) async throws -> RemoteReply {
+        lock.withLock { requests.append(request) }
+        let (status, body) = try handler(request)
+        return RemoteReply(status: status, body: body, fingerprint: fingerprint)
+    }
+}
