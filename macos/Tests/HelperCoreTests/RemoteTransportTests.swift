@@ -32,3 +32,19 @@ import Testing
     #expect(RemoteError.certificateChanged(seen: "0AC646A4E3664417C73EEB6A9F99925A").errorDescription!
         .contains("0AC6-46A4-E366-4417-C73E-EB6A-9F99-925A"))
 }
+
+@Test func theDelegateNeverFollowsARedirect() {
+    let delegate = PinningDelegate(pin: nil)
+    let session = URLSession(configuration: .ephemeral)
+    let task = session.dataTask(with: URL(string: "https://scanner.local:8767/health")!)
+    let response = HTTPURLResponse(url: URL(string: "https://scanner.local:8767/health")!, statusCode: 302,
+                                   httpVersion: nil, headerFields: ["Location": "http://evil.example/"])!
+    var followed: URLRequest? = URLRequest(url: URL(string: "http://placeholder")!)
+    var called = false
+    delegate.urlSession(session, task: task, willPerformHTTPRedirection: response,
+                        newRequest: URLRequest(url: URL(string: "http://evil.example/")!)) { request in
+        followed = request; called = true
+    }
+    #expect(called && followed == nil)
+    session.invalidateAndCancel()
+}

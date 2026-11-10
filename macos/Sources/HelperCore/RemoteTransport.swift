@@ -66,7 +66,7 @@ public protocol RemoteTransport: Sendable {
 }
 
 /// Accepts the server's self-signed certificate only by its pinned fingerprint (or, with no pin, records it).
-final class PinningDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
+final class PinningDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let pin: String?
     private let lock = NSLock()
     private var seen: String?
@@ -74,6 +74,12 @@ final class PinningDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
     init(pin: String?) { self.pin = pin }
 
     var observed: String? { lock.withLock { seen } }
+
+    /// Never follows a redirect: the pin and the token belong to this server only, so a 3xx arrives as a plain status.
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
 
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
                     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {

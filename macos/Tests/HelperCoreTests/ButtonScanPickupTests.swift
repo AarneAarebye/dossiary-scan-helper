@@ -176,13 +176,13 @@ private struct Rig {
     #expect(transport.sent.isEmpty && rig.files.isEmpty)
 }
 
-@Test func aPendingScanWaitsFiveMinutesAndAFailedOneDoesNot() async {
+@Test func aPendingScanWaitsThirtyMinutesAndAFailedOneDoesNot() async {
     let rig = Rig()
     rig.script.add(idA, name: "a.pdf", ocr: "pending")
     rig.script.add(idB, name: "b.pdf", ocr: "failed")
     await rig.pickup.pickUpOnce()
     #expect(rig.files == ["b.pdf"])
-    rig.clock.advance(5 * 60)
+    rig.clock.advance(30 * 60)
     await rig.pickup.pickUpOnce()
     #expect(rig.files == ["b.pdf"])
     rig.clock.advance(2)
@@ -445,14 +445,14 @@ private func waitUntil(_ condition: @Sendable () -> Bool) async {
     let rig = Rig()
     rig.script.add(idA, name: "a.pdf", ocr: "pending")
     await rig.pickup.pickUpOnce()
-    rig.clock.advance(4 * 60)
+    rig.clock.advance(29 * 60)
     rig.script.hidden = true
     await rig.pickup.pickUpOnce()
     rig.script.hidden = false
     rig.clock.advance(2 * 60)
     await rig.pickup.pickUpOnce()      // first seen again now, not 6 minutes ago
     #expect(rig.files.isEmpty)
-    rig.clock.advance(5 * 60 + 1)
+    rig.clock.advance(30 * 60 + 1)
     await rig.pickup.pickUpOnce()
     #expect(rig.files == ["a.pdf"])
 }

@@ -28,7 +28,9 @@ public struct PickedUpScan: Equatable, Sendable {
 /// Fetches finished button-scan PDFs from the paired scan servers, saves them, and only then deletes them on the
 /// server. A failed save or delete never loses a scan: it stays on the server for a later pass.
 public final class ButtonScanPickup: @unchecked Sendable {
-    private static let pendingGrace: TimeInterval = 5 * 60
+    /// How long a scan whose text recognition still says "pending" is waited for. A Pi needs a good while for a
+    /// 20-40 page batch, and a PDF taken too early has no text, so this is generous (raised from 5 minutes).
+    private static let pendingGrace: TimeInterval = 30 * 60
     private static let maxBytes = 512 * 1024 * 1024
     private static let maxErrorsInARow = 3
 

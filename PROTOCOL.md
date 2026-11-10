@@ -377,9 +377,9 @@ wait on the server.
 | Code | Meaning |
 |---|---|
 | 400 | malformed request |
-| 401 | no valid pairing token (`/scanners`, `/scan`, `/ocr/<job>`) |
+| 401 | no valid pairing token (`/scanners`, `/scan`, `/ocr/<job>`, `/button-scans…`) |
 | 403 | origin not allowed, or pairing code refused (`/pair`) |
-| 404 | unknown scanner, unknown endpoint, or unknown or fetched OCR job |
+| 404 | unknown scanner, unknown endpoint, or unknown or fetched OCR job, or an unknown or deleted button scan |
 | 405 | wrong method for the endpoint |
 | 409 | a scan is already running |
 | 422 | a setting the scanner doesn't offer |
