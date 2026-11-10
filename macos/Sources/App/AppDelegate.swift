@@ -10,7 +10,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NetworkScannerPanel(store: store) { [weak self] in self?.refreshScanners() }
     }
 
-    init(runtime: HelperRuntime) { self.runtime = runtime }
+    private let notifier = PickupNotifier()
+
+    init(runtime: HelperRuntime) {
+        self.runtime = runtime
+        runtime.buttonScanPickup?.onPickedUp = { [notifier] scan in notifier.notify(scan) }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -71,6 +76,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                         networkServers: runtime.remote.map { remote in
                                             remote.servers.map { NetworkServerEntry(id: $0.id, name: $0.name, status: remote.statuses[$0.id]) }
                                         },
+                                        buttonScanFolder: runtime.buttonScanFolder?.url.lastPathComponent,
+                                        lastButtonScan: runtime.buttonScanPickup?.lastScan?.name,
+                                        buttonScanProblem: runtime.buttonScanPickup?.lastProblem,
                                         texts: L)
         for entry in entries {
             switch entry {
@@ -124,6 +132,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSWorkspace.shared.open(Log.shared.url)
         case .addNetworkScanner:
             networkPanel?.show()
+        case .chooseButtonScanFolder:
+            guard let folder = runtime.buttonScanFolder else { return }
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = false
+            panel.canCreateDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.directoryURL = folder.url
+            panel.prompt = L("Choose")
+            NSApp.activate(ignoringOtherApps: true)
+            if panel.runModal() == .OK, let url = panel.url { folder.choose(url) }
         case .removeNetworkScanner(let id):
             do {
                 try runtime.remoteStore?.remove(id: id)

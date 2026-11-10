@@ -1,5 +1,5 @@
 public enum MenuAction: Equatable, Sendable {
-    case pair, forget, startAtLogin, openLog, quit, addNetworkScanner
+    case pair, forget, startAtLogin, openLog, quit, addNetworkScanner, chooseButtonScanFolder
     case removeNetworkScanner(String)
 }
 
@@ -31,6 +31,8 @@ public enum MenuEntry: Equatable, Sendable {
 public enum MenuModel {
     public static func entries(scanners: [ScannerInfo], port: UInt16, fake: Bool, pairedCount: Int,
                                startAtLogin: Bool?, networkServers: [NetworkServerEntry]? = nil,
+                               buttonScanFolder: String? = nil, lastButtonScan: String? = nil,
+                               buttonScanProblem: ButtonScanProblem? = nil,
                                texts t: Texts = .english) -> [MenuEntry] {
         var entries: [MenuEntry] = [
             .title(fake ? t("Dossiary Scan Helper — Fake Scanners") : "Dossiary Scan Helper"),
@@ -50,6 +52,10 @@ public enum MenuModel {
                 entries.append(.action(t("Remove “%@”", server.name), .removeNetworkScanner(server.id), checked: false, enabled: true))
             }
             entries.append(.action(t("Add network scanner…"), .addNetworkScanner, checked: false, enabled: true))
+            if let buttonScanFolder { entries.append(.info(t("Button scans go to “%@”", buttonScanFolder))) }
+            entries.append(.action(t("Folder for button scans…"), .chooseButtonScanFolder, checked: false, enabled: true))
+            if let lastButtonScan { entries.append(.info(t("Last button scan: %@", lastButtonScan))) }
+            if let buttonScanProblem { entries.append(.info(t.buttonScanProblem(buttonScanProblem))) }
         }
         entries += [
             .separator,

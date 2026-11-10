@@ -8,6 +8,8 @@ public final class HelperRuntime: @unchecked Sendable {
     public let ocrJobs: OcrJobQueue
     public let remoteStore: RemoteServerStore?
     public let remote: RemoteScanners?
+    public let buttonScanFolder: ButtonScanFolder?
+    public let buttonScanPickup: ButtonScanPickup?
     public let router: Router
     public let server: HTTPServer
     private let log: Log
@@ -21,12 +23,18 @@ public final class HelperRuntime: @unchecked Sendable {
             pairing = PairingStore(mode: .fake)
             remoteStore = nil
             remote = nil
+            buttonScanFolder = nil
+            buttonScanPickup = nil
         } else {
             backend = ImageCaptureBackend(log: { [log] in log.write($0) })
             pairing = PairingStore(mode: .real(fileURL: PairingStore.defaultFileURL), log: { [log] in log.write($0) })
             let store = RemoteServerStore(fileURL: RemoteServerStore.defaultFileURL, secrets: KeychainSecretStore())
             remoteStore = store
             remote = RemoteScanners(store: store, log: write)
+            let folder = ButtonScanFolder()
+            buttonScanFolder = folder
+            buttonScanPickup = ButtonScanPickup(store: store, folder: folder, ledger: PickedUpLedger(fileURL: PickedUpLedger.defaultFileURL),
+                                                log: write)
         }
         let ocrLanguages: [String]
         if options.fakeScanners {
@@ -49,6 +57,7 @@ public final class HelperRuntime: @unchecked Sendable {
     public func start() throws {
         try server.start()
         Task { [ocrJobs] in await ocrJobs.start() }
+        buttonScanPickup?.start()
         if let real = backend as? ImageCaptureBackend {
             if Thread.isMainThread { MainActor.assumeIsolated { real.start() } }
             else { DispatchQueue.main.async { real.start() } }
@@ -58,7 +67,10 @@ public final class HelperRuntime: @unchecked Sendable {
     }
 
     /// Before quitting: leaves no scan running and no scanner session open.
-    public func stop() async { await backend.stopScans() }
+    public func stop() async {
+        buttonScanPickup?.stop()
+        await backend.stopScans()
+    }
 
     /// Whether quitting now would leave a scanner session open (so `stop()` has something to do).
     @MainActor public var hasOpenScannerSessions: Bool { (backend as? ImageCaptureBackend)?.hasOpenSessions ?? false }

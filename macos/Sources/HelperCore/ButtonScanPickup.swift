@@ -37,7 +37,7 @@ public final class ButtonScanPickup: @unchecked Sendable {
     private let ledger: PickedUpLedger
     private let transport: RemoteScanners.TransportFactory
     private let clock: @Sendable () -> Date
-    private let onPickedUp: @Sendable (PickedUpScan) -> Void
+    private var handler: @Sendable (PickedUpScan) -> Void
     private let log: @Sendable (String) -> Void
 
     private let lock = NSLock()
@@ -56,7 +56,13 @@ public final class ButtonScanPickup: @unchecked Sendable {
                 onPickedUp: @escaping @Sendable (PickedUpScan) -> Void = { _ in },
                 log: @escaping @Sendable (String) -> Void = { _ in }) {
         self.store = store; self.folder = folder; self.ledger = ledger; self.transport = transport
-        self.clock = clock; self.onPickedUp = onPickedUp; self.log = log
+        self.clock = clock; self.handler = onPickedUp; self.log = log
+    }
+
+    /// Called after each scan is saved. Settable after init, for a notifier created later.
+    public var onPickedUp: @Sendable (PickedUpScan) -> Void {
+        get { lock.withLock { handler } }
+        set { lock.withLock { handler = newValue } }
     }
 
     public var lastProblem: ButtonScanProblem? { lock.withLock { problem } }

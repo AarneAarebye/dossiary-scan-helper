@@ -560,3 +560,13 @@ private func waitUntil(_ condition: @Sendable () -> Bool) async {
     #expect(rig.files == ["f.pdf"])      // three 404s did not end the server's turn
     #expect(rig.logs.lines.allSatisfy { !$0.contains("status 404") && !$0.contains("will retry") })
 }
+
+@Test func theHandlerCanBeSetAfterInit() async {
+    let rig = Rig()
+    let late = Rig.Box()
+    rig.pickup.onPickedUp = { late.add($0) }
+    rig.script.add(idA, name: "scan_2026-11-10_151030.pdf")
+    await rig.pickup.pickUpOnce()
+    #expect(late.scans.count == 1)
+    #expect(rig.picked.scans.isEmpty)
+}

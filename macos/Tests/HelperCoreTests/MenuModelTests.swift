@@ -41,11 +41,35 @@ import Testing
     #expect(!fakeMode.contains(.action("Add network scanner…", .addNetworkScanner, checked: false, enabled: true)))
 }
 
+@Test func buttonScanEntriesFollowAddNetworkScanner() {
+    let servers = [NetworkServerEntry(id: "1", name: "attic", status: .connected)]
+    let plain = MenuModel.entries(scanners: [], port: 8766, fake: false, pairedCount: 0, startAtLogin: true,
+                                  networkServers: servers, buttonScanFolder: "Scans")
+    let add = plain.firstIndex(of: .action("Add network scanner…", .addNetworkScanner, checked: false, enabled: true))!
+    #expect(plain[add + 1] == .info("Button scans go to “Scans”"))
+    #expect(plain[add + 2] == .action("Folder for button scans…", .chooseButtonScanFolder, checked: false, enabled: true))
+    #expect(!plain.contains { if case .info(let s) = $0 { return s.hasPrefix("Last button scan") }; return false })
+    let full = MenuModel.entries(scanners: [], port: 8766, fake: false, pairedCount: 0, startAtLogin: true,
+                                 networkServers: servers, buttonScanFolder: "Scans",
+                                 lastButtonScan: "scan_1.pdf", buttonScanProblem: .cannotSave(reason: "disk full"))
+    #expect(full[add + 3] == .info("Last button scan: scan_1.pdf"))
+    #expect(full[add + 4] == .info("Button scans can't be saved: disk full"))
+}
+
+@Test func noButtonScanEntriesInFakeMode() {
+    let entries = MenuModel.entries(scanners: [], port: 8766, fake: true, pairedCount: 0, startAtLogin: nil,
+                                    buttonScanFolder: "Scans", lastButtonScan: "x.pdf", buttonScanProblem: .cannotSave(reason: "r"))
+    #expect(!entries.contains(.action("Folder for button scans…", .chooseButtonScanFolder, checked: false, enabled: true)))
+    #expect(!entries.contains(.info("Button scans go to “Scans”")))
+    #expect(!entries.contains(.info("Last button scan: x.pdf")))
+}
+
 @Test func everyVisibleMenuTextGoesThroughTexts() {
     let entries = MenuModel.entries(scanners: Array(FakeScanners.infos.prefix(1)), port: 8766, fake: true, pairedCount: 1,
                                     startAtLogin: true,
                                     networkServers: [NetworkServerEntry(id: "1", name: "attic", status: .unreachable)],
-                                    texts: marked)
+                                    buttonScanFolder: "Scans", lastButtonScan: "a.pdf",
+                                    buttonScanProblem: .cannotSave(reason: "r"), texts: marked)
     var texts: [String] = []
     for entry in entries {
         switch entry {
