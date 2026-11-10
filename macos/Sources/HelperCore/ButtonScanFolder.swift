@@ -13,6 +13,8 @@ public final class ButtonScanFolder: @unchecked Sendable {
     private let key: String
     private let fallback: URL
     private let lock = NSLock()
+    /// Test seam: called with the temp file and the chosen target just before the move.
+    var beforeMove: (@Sendable (URL, URL) -> Void)?
 
     public init(defaults: UserDefaults = .standard, key: String = "buttonScanFolder",
                 fallback: URL = ButtonScanFolder.defaultURL) {
@@ -37,7 +39,7 @@ public final class ButtonScanFolder: @unchecked Sendable {
             var temp: URL?
             do {
                 try fm.createDirectory(at: folder, withIntermediateDirectories: true)
-                let tmp = folder.appendingPathComponent("\(UUID().uuidString).tmp")
+                let tmp = folder.appendingPathComponent(".\(UUID().uuidString).tmp")   // dot-prefixed: a watched folder never shows it
                 temp = tmp
                 try data.write(to: tmp)
                 var n = 1
@@ -45,6 +47,7 @@ public final class ButtonScanFolder: @unchecked Sendable {
                     let candidate = n == 1 ? safe : "\(stem) \(n)" + (ext.isEmpty ? "" : ".\(ext)")
                     let target = folder.appendingPathComponent(candidate)
                     if !fm.fileExists(atPath: target.path) {
+                        beforeMove?(tmp, target)
                         do {
                             try fm.moveItem(at: tmp, to: target)   // fails if the target appeared meanwhile
                             return target
@@ -61,17 +64,27 @@ public final class ButtonScanFolder: @unchecked Sendable {
         }
     }
 
-    /// Pure: the safe file name for a server-supplied name.
+    /// Pure: the safe file name for a server-supplied name. Keeps the last path component, removes control and
+    /// format characters (Cc, Cf), turns ":" into "-", trims blanks, never starts with ".", guarantees a ".pdf"
+    /// suffix and at most 200 UTF-8 bytes (cut on a character boundary); an empty result becomes "scan.pdf".
     public static func safeName(_ name: String) -> String {
-        var s = name.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }
+        var s = name.unicodeScalars.filter { $0.properties.generalCategory != .control && $0.properties.generalCategory != .format }
             .map { String($0) }.joined()
         s = s.split(separator: "/", omittingEmptySubsequences: false).last.map(String.init) ?? ""
         s = s.replacingOccurrences(of: ":", with: "-")
-        while s.hasPrefix(".") { s.removeFirst() }
-        s = s.trimmingCharacters(in: .whitespaces)
+        while true {
+            let before = s
+            s = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            while s.hasPrefix(".") { s.removeFirst() }
+            if s == before { break }
+        }
         if s.isEmpty { return "scan.pdf" }
         if !s.lowercased().hasSuffix(".pdf") { s += ".pdf" }
-        if s.count > 120 { s = String(s.dropLast(4).prefix(116)) + ".pdf" }
+        if s.utf8.count > 200 {
+            var base = String(s.dropLast(4))
+            while base.utf8.count + 4 > 200 { base.removeLast() }
+            s = base + ".pdf"
+        }
         return s
     }
 }

@@ -13,6 +13,7 @@ private final class Clock: @unchecked Sendable {
 
 @Test func ledgerRecordsAndReloads() throws {
     let file = tempFile()
+    defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
     let ledger = PickedUpLedger(fileURL: file)
     #expect(!ledger.contains("a"))
     try ledger.record("a", file: "x.pdf")
@@ -49,4 +50,17 @@ private final class Clock: @unchecked Sendable {
     let ledger = PickedUpLedger(fileURL: nil)
     try ledger.record("a", file: "x.pdf")
     #expect(ledger.contains("a"))
+}
+
+@Test func ledgerTreatsValidJsonOfTheWrongShapeAsEmpty() throws {
+    for body in ["[]", "{\"a\":1}"] {
+        let file = tempFile()
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(body.utf8).write(to: file)
+        let ledger = PickedUpLedger(fileURL: file)
+        #expect(!ledger.contains("a"))
+        try ledger.record("b", file: "x.pdf")
+        #expect(ledger.contains("b"))
+    }
 }
