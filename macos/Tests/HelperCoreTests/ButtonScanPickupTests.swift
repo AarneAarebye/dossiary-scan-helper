@@ -24,6 +24,9 @@ private final class Script: @unchecked Sendable {
     var listStatus = 200
     var deleteStatus = 204
     var deleteThrows = false
+    var failDownloads: Set<String> = []
+    var deleteThrowsCertificate = false
+    var hidden = false
     private(set) var deleted: [String] = []
 
     func add(_ id: String, name: String, ocr: String = "done", body: Data = pdf(), bytes: Int? = nil) {
@@ -42,19 +45,21 @@ private final class Script: @unchecked Sendable {
         }
         if r.path == "/button-scans" {
             if listStatus != 200 { return (listStatus, Data("{}".utf8)) }
-            let list = lock.withLock { _items.map { ["id": $0.id, "name": $0.name, "pages": 1, "bytes": $0.bytes,
+            let list = lock.withLock { (hidden ? [] : _items).map { ["id": $0.id, "name": $0.name, "pages": 1, "bytes": $0.bytes,
                                                        "created": "2026-11-10T15:10:30", "ocr": $0.ocr] as [String: Any] } }
             return (200, try JSONSerialization.data(withJSONObject: ["scans": list]))
         }
         if r.path.hasPrefix("/button-scans/") {
             let id = String(r.path.dropFirst("/button-scans/".count))
             if r.method == "DELETE" {
+                if deleteThrowsCertificate { throw RemoteError.certificateChanged(seen: "EE") }
                 if deleteThrows { throw RemoteError.unreachable("down") }
                 if deleteStatus == 204 || deleteStatus == 404 {
                     lock.withLock { _items.removeAll { $0.id == id }; deleted.append(id) }
                 }
                 return (deleteStatus, Data())
             }
+            if failDownloads.contains(id) { throw RemoteError.unreachable("down") }
             guard let item = lock.withLock({ _items.first { $0.id == id } }) else { return (404, Data()) }
             return (200, item.body)
         }
@@ -97,6 +102,7 @@ private struct Rig {
                                   clock: { clock.now }, onPickedUp: { picked.add($0) }, log: { logs.add($0) })
     }
 
+    func key(_ id: String) -> String { "\(server.id)/\(id)" }
     var paths: [String] { transport.sent.map { "\($0.method) \($0.path)" } }
     var files: [String] { ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).sorted() }
 }
@@ -108,7 +114,7 @@ private struct Rig {
     #expect(rig.paths == ["GET /health", "GET /button-scans", "GET /button-scans/\(idA)", "DELETE /button-scans/\(idA)"])
     #expect(rig.files == ["scan_2026-11-10_151030.pdf"])
     #expect(try Data(contentsOf: rig.dir.appendingPathComponent("scan_2026-11-10_151030.pdf")) == pdf("one"))
-    #expect(rig.ledger.contains(idA))
+    #expect(rig.ledger.contains(rig.key(idA)))
     #expect(rig.picked.scans.count == 1 && rig.picked.scans.first?.server == "scanner" && rig.picked.scans.first?.pages == 1)
     #expect(rig.pickup.lastScan == rig.picked.scans.first)
     #expect(rig.pickup.lastProblem == nil)
@@ -147,7 +153,7 @@ private struct Rig {
                                       transport: { $0.id == good.id ? goodTransport : badTransport })
         await pickup.pickUpOnce()
         #expect(rig.files == ["b.pdf"])
-        #expect(!rig.ledger.contains(idA) && rig.ledger.contains(idB))
+        #expect(!rig.ledger.contains(rig.key(idA)) && rig.ledger.contains("\(good.id)/\(idB)"))
         #expect(rig.script.deleted.isEmpty && goodScript.deleted == [idB])
     }
 }
@@ -210,7 +216,7 @@ private struct Rig {
     await rig.pickup.pickUpOnce()
     #expect(!rig.paths.contains { $0.hasPrefix("DELETE") })
     #expect(rig.pickup.lastProblem?.hasPrefix("Button scans can't be saved") == true)
-    #expect(!rig.ledger.contains(idA))
+    #expect(!rig.ledger.contains(rig.key(idA)))
     try FileManager.default.removeItem(at: rig.dir)
     await rig.pickup.pickUpOnce()
     #expect(rig.files == ["a.pdf"])
@@ -224,7 +230,7 @@ private struct Rig {
         rig.script.add(idA, name: "a.pdf")
         if mode == "throws" { rig.script.deleteThrows = true } else { rig.script.deleteStatus = 500 }
         await rig.pickup.pickUpOnce()
-        #expect(rig.ledger.contains(idA) && rig.files == ["a.pdf"])
+        #expect(rig.ledger.contains(rig.key(idA)) && rig.files == ["a.pdf"])
         rig.script.deleteThrows = false; rig.script.deleteStatus = 204
         await rig.pickup.pickUpOnce()
         #expect(rig.files == ["a.pdf"])
@@ -239,13 +245,19 @@ private struct Rig {
     rig.script.add(idA, name: "a.pdf")
     rig.script.deleteStatus = 404
     await rig.pickup.pickUpOnce()
-    #expect(rig.pickup.lastProblem == nil && rig.ledger.contains(idA))
+    #expect(rig.pickup.lastProblem == nil && rig.ledger.contains(rig.key(idA)))
     #expect(rig.picked.scans.count == 1)
+    #expect(!rig.logs.lines.contains { $0.contains("refused to delete") })
+    let failing = Rig()
+    failing.script.add(idA, name: "a.pdf")
+    failing.script.deleteStatus = 500
+    await failing.pickup.pickUpOnce()
+    #expect(failing.logs.lines.contains { $0.contains("refused to delete") })
 }
 
 @Test func aScanAlreadyInTheLedgerIsOnlyDeleted() async throws {
     let rig = Rig()
-    try rig.ledger.record(idA, file: "a.pdf")
+    try rig.ledger.record(rig.key(idA), file: "a.pdf")
     rig.script.add(idA, name: "a.pdf")
     await rig.pickup.pickUpOnce()
     #expect(rig.paths == ["GET /health", "GET /button-scans", "DELETE /button-scans/\(idA)"])
@@ -299,4 +311,173 @@ private final class CountingTransport: RemoteTransport, @unchecked Sendable {
     async let two: Void = pickup.pickUpOnce()
     _ = await (one, two)
     #expect(transport.health == 1)
+}
+
+private final class Gate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var open = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var _entered = 0
+    var entered: Int { lock.withLock { _entered } }
+    func wait() async {
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            let resume = lock.withLock { () -> Bool in
+                _entered += 1
+                if open { return true }
+                waiting.append(c); return false
+            }
+            if resume { c.resume() }
+        }
+    }
+    func release() {
+        let all = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
+            open = true; defer { waiting = [] }; return waiting
+        }
+        all.forEach { $0.resume() }
+    }
+}
+
+private final class GatedTransport: RemoteTransport, @unchecked Sendable {
+    let inner: FakeBinaryTransport
+    let gate = Gate()
+    private let lock = NSLock()
+    private var gated = false
+    init(_ inner: FakeBinaryTransport) { self.inner = inner }
+    func gateNext() { lock.withLock { gated = true } }
+    func send(_ request: RemoteRequest) async throws -> RemoteReply {
+        if lock.withLock({ gated }) { await gate.wait() }
+        return try await inner.send(request)
+    }
+}
+
+private func waitUntil(_ condition: @Sendable () -> Bool) async {
+    for _ in 0..<500 where !condition() { try? await Task.sleep(nanoseconds: 10_000_000) }
+}
+
+@Test func aFailedLedgerWriteStillAnnouncesDeletesAndNeverSavesTwice() async throws {
+    let rig = Rig()
+    let blocker = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try Data("file".utf8).write(to: blocker)
+    let ledger = PickedUpLedger(fileURL: blocker.appendingPathComponent("picked-up.json"))   // parent is a file
+    let transport = rig.transport, picked = rig.picked
+    let pickup = ButtonScanPickup(store: rig.store, folder: rig.folder, ledger: ledger, transport: { _ in transport },
+                                  onPickedUp: { picked.add($0) })
+    rig.script.add(idA, name: "a.pdf")
+    await pickup.pickUpOnce()
+    #expect(rig.files == ["a.pdf"])
+    #expect(rig.script.deleted == [idA])
+    #expect(picked.scans.count == 1 && pickup.lastScan != nil)
+    #expect(pickup.lastProblem?.hasPrefix("Picked-up scans can't be recorded") == true)
+    rig.script.add(idA, name: "a.pdf")   // the delete is lost: the server lists it again
+    await pickup.pickUpOnce()
+    #expect(rig.files == ["a.pdf"])
+    #expect(picked.scans.count == 1)
+}
+
+@Test func aRecordFailureDoesNotStopTheRestOfThePass() async throws {
+    let rig = Rig()
+    let blocker = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try Data("file".utf8).write(to: blocker)
+    let ledger = PickedUpLedger(fileURL: blocker.appendingPathComponent("picked-up.json"))
+    let transport = rig.transport
+    let pickup = ButtonScanPickup(store: rig.store, folder: rig.folder, ledger: ledger, transport: { _ in transport })
+    rig.script.add(idA, name: "a.pdf")
+    rig.script.add(idB, name: "b.pdf")
+    await pickup.pickUpOnce()
+    #expect(rig.files == ["a.pdf", "b.pdf"])
+}
+
+@Test func theSaveProblemSurvivesAFailureLaterInTheSamePass() async throws {
+    let rig = Rig()
+    try FileManager.default.createDirectory(at: rig.dir.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("file".utf8).write(to: rig.dir)
+    try rig.ledger.record(rig.key(idB), file: "b.pdf")
+    rig.script.add(idA, name: "a.pdf")
+    rig.script.add(idB, name: "b.pdf")
+    rig.script.deleteThrowsCertificate = true
+    await rig.pickup.pickUpOnce()
+    #expect(rig.pickup.lastProblem?.hasPrefix("Button scans can't be saved") == true)
+}
+
+@Test func aFailedDownloadMovesOnAndThreeErrorsInARowEndTheServersTurn() async {
+    let rig = Rig()
+    rig.script.add(idA, name: "a.pdf")
+    rig.script.add(idB, name: "b.pdf")
+    rig.script.failDownloads = [idA]
+    await rig.pickup.pickUpOnce()
+    #expect(rig.files == ["b.pdf"])
+
+    let many = Rig()
+    let ids = ["c", "d", "e", "f"].map { String(repeating: $0, count: 22) }
+    for id in ids { many.script.add(id, name: "\(id.prefix(1)).pdf") }
+    many.script.failDownloads = Set(ids.prefix(3))
+    await many.pickup.pickUpOnce()
+    #expect(many.files.isEmpty)
+    #expect(!many.paths.contains("GET /button-scans/\(ids[3])"))
+}
+
+@Test func aCertificateChangeOrA401WhileDeletingEndsTheServersTurn() async {
+    let rig = Rig()
+    rig.script.add(idA, name: "a.pdf")
+    rig.script.add(idB, name: "b.pdf")
+    rig.script.deleteThrowsCertificate = true
+    await rig.pickup.pickUpOnce()
+    #expect(rig.files == ["a.pdf"])
+    #expect(!rig.paths.contains("GET /button-scans/\(idB)"))
+}
+
+@Test func aScanLargerThanTheLimitIsSkippedAndLoggedOnce() async {
+    let rig = Rig()
+    rig.script.add(idA, name: "a.pdf", bytes: 600 * 1024 * 1024)
+    await rig.pickup.pickUpOnce()
+    await rig.pickup.pickUpOnce()
+    #expect(rig.files.isEmpty)
+    #expect(!rig.paths.contains("GET /button-scans/\(idA)"))
+    #expect(rig.logs.lines.filter { $0.contains("too large") }.count == 1)
+}
+
+@Test func aPendingScanThatDisappearsStartsItsClockAgain() async {
+    let rig = Rig()
+    rig.script.add(idA, name: "a.pdf", ocr: "pending")
+    await rig.pickup.pickUpOnce()
+    rig.clock.advance(4 * 60)
+    rig.script.hidden = true
+    await rig.pickup.pickUpOnce()
+    rig.script.hidden = false
+    rig.clock.advance(2 * 60)
+    await rig.pickup.pickUpOnce()      // first seen again now, not 6 minutes ago
+    #expect(rig.files.isEmpty)
+    rig.clock.advance(5 * 60 + 1)
+    await rig.pickup.pickUpOnce()
+    #expect(rig.files == ["a.pdf"])
+}
+
+@Test func stopDuringAPassKeepsTheProblemAndLetsTheNextPassRun() async throws {
+    let rig = Rig()
+    try FileManager.default.createDirectory(at: rig.dir.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("file".utf8).write(to: rig.dir)
+    rig.script.add(idA, name: "a.pdf")
+    let gated = GatedTransport(rig.transport)
+    let pickup = ButtonScanPickup(store: rig.store, folder: rig.folder, ledger: rig.ledger, transport: { _ in gated })
+    await pickup.pickUpOnce()
+    let problem = pickup.lastProblem
+    #expect(problem != nil)
+    try FileManager.default.removeItem(at: rig.dir)
+
+    gated.gateNext()
+    pickup.start(interval: 0.01)
+    await waitUntil { gated.gate.entered >= 1 }
+    pickup.stop()
+    #expect(pickup.lastProblem == problem)
+    gated.gate.release()
+    await waitUntil { rig.files == ["a.pdf"] }
+    #expect(pickup.lastProblem == problem)   // the cancelled pass did not touch it
+    let before = rig.paths.filter { $0 == "GET /health" }.count
+    for _ in 0..<500 {
+        await pickup.pickUpOnce()
+        if rig.paths.filter({ $0 == "GET /health" }).count > before { break }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    #expect(rig.paths.filter { $0 == "GET /health" }.count > before)
+    #expect(pickup.lastProblem == nil)
 }

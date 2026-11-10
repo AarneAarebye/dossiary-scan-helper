@@ -41,7 +41,15 @@ public final class ButtonScanFolder: @unchecked Sendable {
                 try fm.createDirectory(at: folder, withIntermediateDirectories: true)
                 let tmp = folder.appendingPathComponent(".\(UUID().uuidString).tmp")   // dot-prefixed: a watched folder never shows it
                 temp = tmp
-                try data.write(to: tmp)
+                guard fm.createFile(atPath: tmp.path, contents: nil) else {
+                    throw ButtonScanSaveError(reason: "The file couldn't be created.")
+                }
+                let handle = try FileHandle(forWritingTo: tmp)
+                do {
+                    try handle.write(contentsOf: data)
+                    try handle.synchronize()   // on disk before it gets its final name
+                    try handle.close()
+                } catch { try? handle.close(); throw error }
                 var n = 1
                 while true {
                     let candidate = n == 1 ? safe : "\(stem) \(n)" + (ext.isEmpty ? "" : ".\(ext)")
