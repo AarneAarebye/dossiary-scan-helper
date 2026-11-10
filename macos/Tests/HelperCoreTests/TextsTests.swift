@@ -33,3 +33,11 @@ let marked = Texts { "‹" + $0 + "›" }
     // Anything else keeps its own (system) description.
     #expect(marked.errorText(URLError(.timedOut)) == URLError(.timedOut).localizedDescription)
 }
+
+@Test func buttonScanProblemsAreEnglishAndTranslatable() {
+    #expect(Texts.english.buttonScanProblem(.cannotSave(reason: "full")) == "Button scans can't be saved: full")
+    #expect(Texts.english.buttonScanProblem(.cannotRecord(reason: "locked")) == "Picked-up scans can't be recorded: locked")
+    #expect(Texts.english.buttonScanProblem(.tooLarge(server: "Pi")) == "Pi has a button scan that is too large to pick up.")
+    let upper = Texts { $0.uppercased() }
+    #expect(upper.buttonScanProblem(.cannotSave(reason: "full")) == "BUTTON SCANS CAN'T BE SAVED: full")
+}

@@ -1,6 +1,10 @@
 import Foundation
 
-public struct ButtonScanSaveError: Error, Equatable, Sendable { public let reason: String }
+public struct ButtonScanSaveError: LocalizedError, Equatable, Sendable {
+    /// A system `localizedDescription`, never a literal of ours.
+    public let reason: String
+    public var errorDescription: String? { reason }
+}
 
 /// Where picked-up button scan PDFs are saved: a folder remembered in UserDefaults (default ~/Documents/Scans).
 public final class ButtonScanFolder: @unchecked Sendable {
@@ -41,9 +45,7 @@ public final class ButtonScanFolder: @unchecked Sendable {
                 try fm.createDirectory(at: folder, withIntermediateDirectories: true)
                 let tmp = folder.appendingPathComponent(".\(UUID().uuidString).tmp")   // dot-prefixed: a watched folder never shows it
                 temp = tmp
-                guard fm.createFile(atPath: tmp.path, contents: nil) else {
-                    throw ButtonScanSaveError(reason: "The file couldn't be created.")
-                }
+                try Data().write(to: tmp)   // a system error with its own description when it can't be created
                 let handle = try FileHandle(forWritingTo: tmp)
                 do {
                     try handle.write(contentsOf: data)
@@ -67,6 +69,7 @@ public final class ButtonScanFolder: @unchecked Sendable {
                 }
             } catch {
                 if let temp { try? fm.removeItem(at: temp) }
+                if let error = error as? ButtonScanSaveError { throw error }
                 throw ButtonScanSaveError(reason: error.localizedDescription)
             }
         }

@@ -2,6 +2,9 @@ import Foundation
 import Testing
 @testable import HelperCore
 
+private func isCannotSave(_ p: ButtonScanProblem?) -> Bool { if case .cannotSave = p { return true }; return false }
+private func isCannotRecord(_ p: ButtonScanProblem?) -> Bool { if case .cannotRecord = p { return true }; return false }
+
 private let idA = String(repeating: "a", count: 22)
 private let idB = String(repeating: "b", count: 22)
 
@@ -27,6 +30,7 @@ private final class Script: @unchecked Sendable {
     var failDownloads: Set<String> = []
     var deleteThrowsCertificate = false
     var hidden = false
+    var goneIds: Set<String> = []
     private(set) var deleted: [String] = []
 
     func add(_ id: String, name: String, ocr: String = "done", body: Data = pdf(), bytes: Int? = nil) {
@@ -59,6 +63,7 @@ private final class Script: @unchecked Sendable {
                 }
                 return (deleteStatus, Data())
             }
+            if goneIds.contains(id) { return (404, Data()) }
             if failDownloads.contains(id) { throw RemoteError.unreachable("down") }
             guard let item = lock.withLock({ _items.first { $0.id == id } }) else { return (404, Data()) }
             return (200, item.body)
@@ -215,7 +220,7 @@ private struct Rig {
     rig.script.add(idA, name: "a.pdf")
     await rig.pickup.pickUpOnce()
     #expect(!rig.paths.contains { $0.hasPrefix("DELETE") })
-    #expect(rig.pickup.lastProblem?.hasPrefix("Button scans can't be saved") == true)
+    #expect(isCannotSave(rig.pickup.lastProblem))
     #expect(!rig.ledger.contains(rig.key(idA)))
     try FileManager.default.removeItem(at: rig.dir)
     await rig.pickup.pickUpOnce()
@@ -367,7 +372,7 @@ private func waitUntil(_ condition: @Sendable () -> Bool) async {
     #expect(rig.files == ["a.pdf"])
     #expect(rig.script.deleted == [idA])
     #expect(picked.scans.count == 1 && pickup.lastScan != nil)
-    #expect(pickup.lastProblem?.hasPrefix("Picked-up scans can't be recorded") == true)
+    #expect(isCannotRecord(pickup.lastProblem))
     rig.script.add(idA, name: "a.pdf")   // the delete is lost: the server lists it again
     await pickup.pickUpOnce()
     #expect(rig.files == ["a.pdf"])
@@ -396,7 +401,7 @@ private func waitUntil(_ condition: @Sendable () -> Bool) async {
     rig.script.add(idB, name: "b.pdf")
     rig.script.deleteThrowsCertificate = true
     await rig.pickup.pickUpOnce()
-    #expect(rig.pickup.lastProblem?.hasPrefix("Button scans can't be saved") == true)
+    #expect(isCannotSave(rig.pickup.lastProblem))
 }
 
 @Test func aFailedDownloadMovesOnAndThreeErrorsInARowEndTheServersTurn() async {
@@ -480,4 +485,78 @@ private func waitUntil(_ condition: @Sendable () -> Bool) async {
     }
     #expect(rig.paths.filter { $0 == "GET /health" }.count > before)
     #expect(pickup.lastProblem == nil)
+}
+
+@Test func theTooLargeProblemIsReportedWhileTheScanIsListed() async {
+    let rig = Rig()
+    rig.script.add(idA, name: "a.pdf", bytes: 600 * 1024 * 1024)
+    await rig.pickup.pickUpOnce()
+    #expect(rig.pickup.lastProblem == .tooLarge(server: "scanner"))
+    #expect(rig.logs.lines.contains(ButtonScanProblem.tooLarge(server: "scanner").logText))
+}
+
+@Test func saveReasonsAreSystemDescriptionsNotOurOwnText() async throws {
+    let rig = Rig()
+    try FileManager.default.createDirectory(at: rig.dir.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("file".utf8).write(to: rig.dir)
+    rig.script.add(idA, name: "a.pdf")
+    await rig.pickup.pickUpOnce()
+    guard case .cannotSave(let reason) = rig.pickup.lastProblem else { Issue.record("no save problem"); return }
+    #expect(!reason.contains("ButtonScanSaveError") && !reason.isEmpty)
+}
+
+@Test func aStoppedPassDoesNotLogUnreachableErrors() async throws {
+    let rig = Rig()
+    for id in [idA, idB, String(repeating: "c", count: 22)] { rig.script.add(id, name: "\(id.prefix(1)).pdf") }
+    rig.script.failDownloads = [idA, idB, String(repeating: "c", count: 22)]
+    let inner = rig.transport
+    let gated = GatedTransport(inner)
+    let logs = rig.logs
+    let pickup = ButtonScanPickup(store: rig.store, folder: rig.folder, ledger: rig.ledger, transport: { _ in gated },
+                                  log: { logs.add($0) })
+    gated.gateNext()
+    let task = Task { await pickup.pickUpOnce() }
+    await waitUntil { gated.gate.entered >= 1 }
+    task.cancel()
+    gated.gate.release()
+    await task.value
+    #expect(!logs.lines.contains { $0.contains("could not be reached") })
+}
+
+@Test func truncatedBodiesAreTriedAtMostThreeTimesAPassAndLoggedOncePerScan() async {
+    let rig = Rig()
+    let ids = ["c", "d", "e", "f"].map { String(repeating: $0, count: 22) }
+    for id in ids { rig.script.add(id, name: "\(id.prefix(1)).pdf", body: pdf("cut"), bytes: 9999) }
+    await rig.pickup.pickUpOnce()
+    #expect(rig.paths.filter { $0.hasPrefix("GET /button-scans/") }.count == 3)
+    #expect(rig.logs.lines.filter { $0.contains("not a complete PDF") }.count == 3)
+    await rig.pickup.pickUpOnce()
+    await rig.pickup.pickUpOnce()
+    #expect(rig.logs.lines.filter { $0.contains("not a complete PDF") }.count == 3)
+    #expect(rig.files.isEmpty)
+}
+
+@Test func aScanListedWithoutBytesIsSkippedWithOneLogLine() async throws {
+    let rig = Rig()
+    let transport = FakeBinaryTransport { r in
+        if r.path == "/health" { return (200, Data(#"{"buttonScans":true}"#.utf8)) }
+        return (200, Data(#"{"scans":[{"id":"\#(idA)","name":"a.pdf","pages":1,"ocr":"done"}]}"#.utf8))
+    }
+    let logs = rig.logs
+    let pickup = ButtonScanPickup(store: rig.store, folder: rig.folder, ledger: rig.ledger, transport: { _ in transport },
+                                  log: { logs.add($0) })
+    await pickup.pickUpOnce()
+    await pickup.pickUpOnce()
+    #expect(!transport.sent.contains { $0.path.hasPrefix("/button-scans/") })
+    #expect(logs.lines.filter { $0.contains("without a size") }.count == 1)
+}
+
+@Test func aDownload404MeansGoneWithoutLogOrError() async {
+    let rig = Rig()
+    let ids = ["c", "d", "e", "f"].map { String(repeating: $0, count: 22) }
+    for id in ids { rig.script.add(id, name: "\(id.prefix(1)).pdf") }
+    rig.script.goneIds = Set(ids.prefix(3))
+    await rig.pickup.pickUpOnce()
+    #expect(rig.files == ["f.pdf"])      // three 404s did not end the server's turn
+    #expect(rig.logs.lines.allSatisfy { !$0.contains("status 404") && !$0.contains("will retry") })
 }

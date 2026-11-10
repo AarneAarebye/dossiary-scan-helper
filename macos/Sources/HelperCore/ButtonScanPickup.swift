@@ -1,5 +1,20 @@
 import Foundation
 
+public enum ButtonScanProblem: Equatable, Sendable {
+    case cannotSave(reason: String)
+    case cannotRecord(reason: String)
+    case tooLarge(server: String)
+
+    /// The English text, for the log.
+    public var logText: String {
+        switch self {
+        case .cannotSave(let reason): return "Button scans can't be saved: \(reason)"
+        case .cannotRecord(let reason): return "Picked-up scans can't be recorded: \(reason)"
+        case .tooLarge(let server): return "\(server) has a button scan that is too large to pick up."
+        }
+    }
+}
+
 public struct PickedUpScan: Equatable, Sendable {
     public let name: String
     public let file: URL
@@ -30,7 +45,8 @@ public final class ButtonScanPickup: @unchecked Sendable {
     private var firstSeen: [String: Date] = [:]
     private var savedThisSession: Set<String> = []   // keys saved by this run, whatever the ledger managed to write
     private var oversizeLogged: Set<String> = []
-    private var problem: String?
+    private var problem: ButtonScanProblem?
+    private var incompleteLogged: Set<String> = []
     private var last: PickedUpScan?
     private var loop: Task<Void, Never>?
 
@@ -43,7 +59,7 @@ public final class ButtonScanPickup: @unchecked Sendable {
         self.clock = clock; self.onPickedUp = onPickedUp; self.log = log
     }
 
-    public var lastProblem: String? { lock.withLock { problem } }
+    public var lastProblem: ButtonScanProblem? { lock.withLock { problem } }
     public var lastScan: PickedUpScan? { lock.withLock { last } }
 
     public func start(interval: TimeInterval = 5) {
@@ -63,7 +79,7 @@ public final class ButtonScanPickup: @unchecked Sendable {
         lock.withLock { loop?.cancel(); loop = nil }
     }
 
-    private struct Problems { var save: String?; var record: String? }
+    private struct Problems { var save: ButtonScanProblem?; var record: ButtonScanProblem?; var large: ButtonScanProblem? }
 
     /// One pass over every paired server. Never throws; problems are logged and kept in `lastProblem`.
     /// Servers are visited one after the other: a hanging server delays the others by at most its own request timeouts.
@@ -82,7 +98,7 @@ public final class ButtonScanPickup: @unchecked Sendable {
         }
         let cancelled = Task.isCancelled
         lock.withLock {
-            if !cancelled { problem = problems.save ?? problems.record }
+            if !cancelled { problem = problems.save ?? problems.record ?? problems.large }
             running = false
         }
     }
@@ -115,6 +131,7 @@ public final class ButtonScanPickup: @unchecked Sendable {
 
         var errors = 0
         for entry in scans {
+            if Task.isCancelled { return }
             guard let id = entry["id"] as? String, isValid(id: id) else {
                 log("Button scans: \(server.name) listed a scan with an unusable id; skipped.")
                 continue
@@ -127,14 +144,24 @@ public final class ButtonScanPickup: @unchecked Sendable {
                 if !known(key) {
                     guard readyToTake(key: key, ocr: entry["ocr"] as? String) else { continue }
                     if problems.save != nil { continue }   // the folder is the same for every scan this pass
-                    if let bytes, bytes > Self.maxBytes {
-                        if lock.withLock({ oversizeLogged.insert(key).inserted }) {
-                            log("Button scans: \(server.name) has a scan too large to fetch; skipped.")
+                    guard let bytes else {   // the list must say how big the PDF is
+                        if lock.withLock({ incompleteLogged.insert(key).inserted }) {
+                            log("Button scans: \(server.name) listed a scan without a size; skipped.")
                         }
+                        continue
+                    }
+                    if bytes > Self.maxBytes {
+                        let problem = ButtonScanProblem.tooLarge(server: server.name)
+                        problems.large = problem
+                        if lock.withLock({ oversizeLogged.insert(key).inserted }) { log(problem.logText) }
                         continue
                     }
                     let reply = try await link.send(RemoteRequest(method: "GET", path: "/button-scans/\(id)", token: token, timeout: 300))
                     if reply.status == 401 { return }
+                    if reply.status == 404 {   // another client took it
+                        lock.withLock { firstSeen[key] = nil }
+                        continue
+                    }
                     guard reply.status == 200 else {
                         log("Button scans: \(server.name) gave status \(reply.status) for a download.")
                         errors += 1
@@ -142,20 +169,24 @@ public final class ButtonScanPickup: @unchecked Sendable {
                         continue
                     }
                     guard reply.body.starts(with: Data("%PDF-".utf8)), reply.body.count == bytes else {
-                        log("Button scans: a download from \(server.name) was not a complete PDF; will retry.")
+                        if lock.withLock({ incompleteLogged.insert(key).inserted }) {
+                            log("Button scans: a download from \(server.name) was not a complete PDF; will retry.")
+                        }
+                        errors += 1
+                        if errors >= Self.maxErrorsInARow { return }
                         continue
                     }
                     let file: URL
                     do { file = try folder.save(reply.body, named: name) } catch {
                         let reason = (error as? ButtonScanSaveError)?.reason ?? error.localizedDescription
-                        problems.save = "Button scans can't be saved: \(reason)"
-                        log(problems.save!)
+                        problems.save = .cannotSave(reason: reason)
+                        log(problems.save!.logText)
                         continue
                     }
                     lock.withLock { _ = savedThisSession.insert(key) }
                     do { try ledger.record(key, file: file.lastPathComponent) } catch {
-                        problems.record = "Picked-up scans can't be recorded: \(error.localizedDescription)"
-                        log(problems.record!)
+                        problems.record = .cannotRecord(reason: error.localizedDescription)
+                        log(problems.record!.logText)
                     }
                     let scan = PickedUpScan(name: file.lastPathComponent, file: file, pages: pages, server: server.name)
                     lock.withLock { last = scan }
@@ -175,6 +206,7 @@ public final class ButtonScanPickup: @unchecked Sendable {
             } catch RemoteError.certificateChanged {
                 return
             } catch {
+                if Task.isCancelled { return }
                 log("Button scans: \(server.name) could not be reached for a scan; will retry.")
                 errors += 1
                 if errors >= Self.maxErrorsInARow { return }

@@ -36,4 +36,13 @@ public struct Texts: Sendable {
         default: return error.localizedDescription
         }
     }
+
+    /// The menu line for a problem the button scan pickup reports.
+    public func buttonScanProblem(_ problem: ButtonScanProblem) -> String {
+        switch problem {
+        case .cannotSave(let reason): return self("Button scans can't be saved: %@", reason)
+        case .cannotRecord(let reason): return self("Picked-up scans can't be recorded: %@", reason)
+        case .tooLarge(let server): return self("%@ has a button scan that is too large to pick up.", server)
+        }
+    }
 }
