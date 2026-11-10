@@ -13,6 +13,11 @@ offers. Images come only from the flatbed (the feeder is PDF only), JPEG can't b
 images are not made searchable, and a scan over 100 megapixels is refused with a message saying what
 to change. The protocol text is in [`PROTOCOL.md`](../PROTOCOL.md) ("Formats and areas").
 
+**Button scans.** A scan made with a button on a Pi arrives in the helper's button-scan folder (menu
+"Folder for button scans…", default `~/Documents/Scans`); point it at a library's Inbox so Dossiary
+imports it. The helper needs 0.6.0 and a server with scanix500 0.10.0; PDFs wait on the server while
+the helper is off. The calls are described in [`PROTOCOL.md`](../PROTOCOL.md) ("Button scans").
+
 To install a release, see [docs/install-macos.md](../docs/install-macos.md).
 
 ## Build and test

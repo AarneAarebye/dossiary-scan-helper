@@ -330,6 +330,48 @@ pair`, valid 5 minutes) it offers **button pairing**: `POST /pair/button`
 iX500's Scan button is pressed, `408` after 2 minutes, `409` when two
 computers asked at once (both refused), `429` after 10 requests in a minute.
 
+### Button scans
+
+A scanix500-server (0.10.0 and later) keeps the PDFs it made when someone
+pressed a scanner button on the Pi, until a helper fetches and deletes them
+or 30 days pass. Its `GET /health` adds `"buttonScans": true` when it offers
+them. Three calls fetch them, each with `Authorization: Bearer <token>` (the
+token from pairing):
+
+- `GET /button-scans` → `200 {"scans": [{"id", "name", "pages", "bytes",
+  "created", "ocr"}]}`, oldest first. `name` is a file name
+  (`scan_YYYY-MM-DD_HHMMSS.pdf`), `bytes` the size of the PDF, `created` an
+  ISO 8601 time. `ocr` is `"pending"` while text recognition runs, then
+  `"done"` or `"failed"`.
+- `GET /button-scans/<id>` → `200` with the PDF (`application/pdf`, with
+  `Content-Length`; `X-Scanix500-Ocr: pending` while recognition is not
+  done). A helper should use the list's `ocr` field rather than the header.
+- `DELETE /button-scans/<id>` → `204`.
+
+An `id` matches `\A[A-Za-z0-9_-]{22,}\Z`; a helper builds no request path
+from any other string. An unknown or already deleted id, or one that doesn't
+match, gets `404` (a `DELETE` answered `404` counts as done). A missing or
+invalid token gets `401`: the helper must pair again. Other methods get
+`405`, and a request with an `Origin` header gets `403`.
+
+A helper deletes a scan only after it has saved the PDF completely (the
+body starts with `%PDF-` and is `bytes` long); a failed save leaves the PDF
+on the server for a later pass.
+
+    helper                                  server
+      |-- GET /button-scans -------------->  |
+      |<-- 200 {"scans": [...]} -----------  |
+      |-- GET /button-scans/<id> ---------->  |
+      |<-- 200 PDF ------------------------  |
+      |   save the file                      |
+      |-- DELETE /button-scans/<id> -------->  |
+      |<-- 204 ------------------------------  |
+
+These calls are between a helper and a scan server. They are not part of
+the localhost API that Dossiary uses, and the conformance suite does not
+test them. A helper that doesn't implement them keeps working: the PDFs
+wait on the server.
+
 ## Errors
 
 | Code | Meaning |

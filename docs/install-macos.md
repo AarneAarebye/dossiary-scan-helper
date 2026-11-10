@@ -41,6 +41,12 @@ encrypted, and the helper refuses the server if its certificate ever changes
 (after reinstalling the Pi, remove the scanner and add it again). The first
 time, macOS asks to allow Dossiary Scan Helper on the local network.
 
+**Button scans.** A scan made with a button on the Pi arrives in the helper's
+button-scan folder (menu **Folder for button scans…**, by default
+`~/Documents/Scans`). Point it at a library's Inbox and Dossiary imports the
+scans from there. This needs helper 0.6.0 and a Pi with scanix500 0.10.0.
+While the helper is off, the PDFs wait on the Pi.
+
 ## If a scanner is missing
 
 - If the helper's scanner icon doesn't appear in the menu bar although the helper runs, check

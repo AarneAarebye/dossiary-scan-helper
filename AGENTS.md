@@ -49,4 +49,7 @@ Linux, macOS and Windows, and the macOS unit tests, localization tests and confo
   "Release" in `macos/README.md`. Signing credentials stay in the local keychain, never in the repo.
 - `scripts/install-app.sh` installs to `/Applications/Dossiary` and removes the `build/` copy;
   two copies under one bundle id break the "Open at Login" item.
+- Button scans (0.6.0): `ButtonScanPickup` fetches PDFs from paired scan servers
+  (`GET/DELETE /button-scans…`), deletes on the server only after the file is saved; ledger
+  `picked-up.json`; folder setting `buttonScanFolder`.
 - `.worktrees/`, `.superpowers/`, and `macos/build`, `macos/dist`, `macos/.build*` are git-ignored.
