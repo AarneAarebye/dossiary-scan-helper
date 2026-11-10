@@ -668,3 +668,41 @@ private func event(_ seq: Any, _ button: Any? = nil) -> [String: Any] {
     await pickup.pickUpOnce()
     #expect(presses.all == [.bw, .finish])
 }
+
+private final class SlowTransport: RemoteTransport, @unchecked Sendable {
+    let fingerprint = String(repeating: "AB", count: 32)
+    func send(_ request: RemoteRequest) async throws -> RemoteReply {
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        throw RemoteError.unreachable("slow")
+    }
+}
+
+@Test func aSlowServerDoesNotDelayAnothersPress() async {
+    let store = RemoteServerStore(fileURL: nil, secrets: MemorySecretStore())
+    let slow = RemoteServer(name: "slow", host: "slow.local", port: 8767, fingerprint: String(repeating: "AB", count: 32))
+    let fast = RemoteServer(name: "fast", host: "fast.local", port: 8767, fingerprint: String(repeating: "CD", count: 32))
+    try! store.add(slow, token: "ts"); try! store.add(fast, token: "tf")   // slow first
+    let script = Script()
+    let tf = FakeBinaryTransport { try script.handle($0) }
+    let stamps = StampBox()
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let pickup = ButtonScanPickup(store: store, folder: ButtonScanFolder(defaults: UserDefaults(suiteName: UUID().uuidString)!, fallback: dir),
+                                  ledger: PickedUpLedger(fileURL: nil),
+                                  transport: { ($0.host == "slow.local" ? SlowTransport() : tf) as any RemoteTransport },
+                                  onButtonPress: { _ in stamps.mark() })
+    script.buttonEvent = event(1, "color")
+    await pickup.pickUpOnce()
+    script.buttonEvent = event(2, "bw")
+    let start = Date()
+    await pickup.pickUpOnce()
+    #expect(stamps.count == 1)
+    #expect((stamps.last ?? .distantFuture).timeIntervalSince(start) < 0.75)
+}
+
+private final class StampBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stamps: [Date] = []
+    func mark() { lock.withLock { stamps.append(Date()) } }
+    var count: Int { lock.withLock { stamps.count } }
+    var last: Date? { lock.withLock { stamps.last } }
+}

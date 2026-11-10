@@ -102,7 +102,7 @@ public final class ButtonScanPickup: @unchecked Sendable {
     private struct Problems { var save: ButtonScanProblem?; var record: ButtonScanProblem?; var large: ButtonScanProblem? }
 
     /// One pass over every paired server. Never throws; problems are logged and kept in `lastProblem`.
-    /// Servers are visited one after the other: a hanging server delays the others by at most its own request timeouts.
+    /// Health checks run concurrently; listing, downloading and deleting go one server after the other.
     /// A pass cancelled by `stop()` leaves `lastProblem` as it was.
     public func pickUpOnce() async {
         let started = lock.withLock { () -> Bool in
@@ -112,9 +112,19 @@ public final class ButtonScanPickup: @unchecked Sendable {
         }
         guard started else { return }
         var problems = Problems()
+        // Health checks (and press detection) run for all servers at once, so a slow server never delays another's sound.
+        let ready = await withTaskGroup(of: (RemoteServer, String, any RemoteTransport)?.self) { group in
+            for server in store.servers {
+                group.addTask { await self.checkHealth(of: server) }
+            }
+            var found: [(RemoteServer, String, any RemoteTransport)] = []
+            for await item in group { if let item { found.append(item) } }
+            return found
+        }
         for server in store.servers {
             if Task.isCancelled { break }
-            await pickUp(from: server, problems: &problems)
+            guard let item = ready.first(where: { $0.0.id == server.id }) else { continue }
+            await pickUp(from: server, token: item.1, link: item.2, problems: &problems)
         }
         let cancelled = Task.isCancelled
         lock.withLock {
@@ -144,20 +154,26 @@ public final class ButtonScanPickup: @unchecked Sendable {
         if let callback, let button { callback(button) }
     }
 
-    private func pickUp(from server: RemoteServer, problems: inout Problems) async {
-        guard let token = store.token(for: server.id) else { return }
+    /// The /health step for one server: sends the token, notes the button event, and returns what the pickup needs
+    /// when the server offers button scans.
+    private func checkHealth(of server: RemoteServer) async -> (RemoteServer, String, any RemoteTransport)? {
+        guard let token = store.token(for: server.id) else { return nil }
         let link = transport(server)
+        let health: RemoteReply
+        do {
+            health = try await link.send(RemoteRequest(method: "GET", path: "/health", token: token, timeout: 3))
+        } catch {
+            lock.withLock { lastSeq[server.id] = nil }   // after a reconnect the next value is a baseline again
+            return nil   // unreachable or changed certificate: RemoteScanners already reports these
+        }
+        guard health.status == 200, health.json?["buttonScans"] as? Bool == true else { return nil }
+        noteButtonEvent(health.json?["buttonEvent"], server: server)
+        return (server, token, link)
+    }
+
+    private func pickUp(from server: RemoteServer, token: String, link: any RemoteTransport, problems: inout Problems) async {
         let scans: [[String: Any]]
         do {
-            let health: RemoteReply
-            do {
-                health = try await link.send(RemoteRequest(method: "GET", path: "/health", token: token, timeout: 3))
-            } catch {
-                lock.withLock { lastSeq[server.id] = nil }   // after a reconnect the next value is a baseline again
-                throw error
-            }
-            guard health.status == 200, health.json?["buttonScans"] as? Bool == true else { return }
-            noteButtonEvent(health.json?["buttonEvent"], server: server)
             let list = try await link.send(RemoteRequest(method: "GET", path: "/button-scans", token: token, timeout: 10))
             guard list.status == 200, let listed = list.json?["scans"] as? [[String: Any]] else {
                 if list.status != 401 { log("Button scans: \(server.name) gave status \(list.status) for the list.") }

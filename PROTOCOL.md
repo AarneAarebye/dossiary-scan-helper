@@ -350,7 +350,8 @@ token from pairing):
 
 To let a helper react to a press (for example with a sound), `GET /health`
 also carries `"buttonEvent": {"seq": <integer>, "button": "color" | "bw" |
-"custom" | "finish"}` once a button was pressed since the server started. The
+"custom" | "finish"}` whenever the server offers button scans (`seq` is 0 and
+`button` absent until the first press since the server started). The
 server sends it only to callers that present a valid pairing token in
 `Authorization: Bearer <token>`; others get the usual reply without it.
 `seq` counts presses in memory only, so it starts again when the server
