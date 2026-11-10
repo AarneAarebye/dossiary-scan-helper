@@ -17,7 +17,7 @@ to change. The protocol text is in [`PROTOCOL.md`](../PROTOCOL.md) ("Formats and
 "Folder for button scans…", default `~/Documents/Scans`); point it at a library's Inbox so Dossiary
 imports it. The helper needs 0.6.0 and a server with scanix500 0.10.0; PDFs wait on the server while
 the helper is off. Each button press on the Pi also plays a
-sound (Tink for a scan button, Glass for finish); the menu item "Sound on button press" switches it
+sound (Pop for a scan button, Hero for finish); the menu item "Sound on button press" switches it
 off. The sound needs a scan server with scanix500 0.10.1 or newer. The calls are described in [`PROTOCOL.md`](../PROTOCOL.md) ("Button scans").
 
 To install a release, see [docs/install-macos.md](../docs/install-macos.md).

@@ -47,7 +47,7 @@ button-scan folder (menu **Folder for button scans…**, by default
 scans from there. This needs helper 0.6.0 and a Pi with scanix500 0.10.0.
 While the helper is off, the PDFs wait on the Pi.
 
-Helper 0.6.1 plays a sound on each button press (Tink for a scan button, Glass
+Helper 0.6.2 plays a sound on each button press (Pop for a scan button, Hero
 for finish). Switch it off with **Sound on button press** in the menu. This
 needs a Pi with scanix500 0.10.1 or newer.
 
