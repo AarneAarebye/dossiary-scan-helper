@@ -47,6 +47,52 @@
           }
         }
       }
+    },
+    "NSDocumentsFolderUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper saves scans from your network scanners into the folder you choose."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper speichert Scans von deinen Netzwerkscannern in dem Ordner, den du auswählst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper guarda los escaneos de sus escáneres de red en la carpeta que usted elija."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper enregistre les numérisations de vos scanners réseau dans le dossier que vous choisissez."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper 会将您网络扫描仪的扫描件保存到您选择的文件夹中。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper 會將您網絡掃描儀的掃描檔儲存到您選擇的資料夾中。"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiary Scan Helper-ը Ձեր ցանցային սկաներներից ստացված սկանավորումները պահում է Ձեր ընտրած թղթապանակում։"
+          }
+        }
+      }
     }
   }
 }
