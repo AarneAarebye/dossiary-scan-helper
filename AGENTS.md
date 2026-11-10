@@ -52,4 +52,6 @@ Linux, macOS and Windows, and the macOS unit tests, localization tests and confo
 - Button scans (0.6.0): `ButtonScanPickup` fetches PDFs from paired scan servers
   (`GET/DELETE /button-scans…`), deletes on the server only after the file is saved; ledger
   `picked-up.json`; folder setting `buttonScanFolder`.
+- Button press sound (0.6.1): `ButtonScanPickup.onButtonPress` plays Tink (color/bw/custom) or Glass
+  (finish) via `ButtonPressSound`; menu switch backed by `ButtonPressSetting`; needs scanix500 0.10.1.
 - `.worktrees/`, `.superpowers/`, and `macos/build`, `macos/dist`, `macos/.build*` are git-ignored.

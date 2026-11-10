@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     init(runtime: HelperRuntime) {
         self.runtime = runtime
         runtime.buttonScanPickup?.onPickedUp = { [notifier] scan in notifier.notify(scan) }
+        runtime.buttonScanPickup?.onButtonPress = { [setting = runtime.buttonPressSetting] press in
+            if setting?.isOn == true { ButtonPressSound.play(press) }
+        }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -79,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                         buttonScanFolder: runtime.buttonScanFolder?.url.lastPathComponent,
                                         lastButtonScan: runtime.buttonScanPickup?.lastScan?.name,
                                         buttonScanProblem: runtime.buttonScanPickup?.lastProblem,
+                                        buttonSound: runtime.buttonPressSetting?.isOn,
                                         texts: L)
         for entry in entries {
             switch entry {
@@ -133,7 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .addNetworkScanner:
             networkPanel?.show()
         case .toggleButtonSound:
-            break   // wired in the sound task
+            runtime.buttonPressSetting?.set(!(runtime.buttonPressSetting?.isOn ?? true))
         case .chooseButtonScanFolder:
             guard let folder = runtime.buttonScanFolder else { return }
             let panel = NSOpenPanel()
