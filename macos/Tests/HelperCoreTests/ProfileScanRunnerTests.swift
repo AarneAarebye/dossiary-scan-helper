@@ -13,10 +13,10 @@ private struct Rig {
     let runner: ProfileScanRunner
     let router: Router
 
-    init(withOcr: Bool = false, giveUp: Double = 0.2) async {
+    init(withOcr: Bool = false, giveUp: Double = 0.2, ocrDelay: Double = 2) async {
         var jobs: OcrJobQueue?
         if withOcr {
-            jobs = OcrJobQueue(root: tempFolder(), engine: FakeOcrEngine(), log: { _ in })
+            jobs = OcrJobQueue(root: tempFolder(), engine: FakeOcrEngine(delay: ocrDelay), log: { _ in })
             await jobs?.start()
         }
         router = Router(backend: FakeBackend(), pairing: PairingStore(mode: .fake), ocrJobs: jobs)
@@ -74,7 +74,7 @@ private struct Rig {
     let rig = await Rig()
     defer { rig.cleanup() }
     let outcome = await rig.runner.run(rig.profile("remote:gone:x", name: "Canon CanoScan 8800F (node-000)"))
-    #expect(outcome == .failed("Canon CanoScan 8800F (node-000) isn't available right now."))
+    #expect(outcome == .problem(.scannerMissing("Canon CanoScan 8800F (node-000)")))
 }
 
 @Test func anOfflineScannerFailsWithTheReason() async {
@@ -92,7 +92,15 @@ private struct Rig {
     profile.source = .feeder
     let outcome = await rig.runner.run(profile)
     guard case .partial(let files, let message) = outcome else { Issue.record("\(outcome)"); return }
-    #expect(files.count == 1 && !message.isEmpty)
+    #expect(files.count == 1 && message?.isEmpty == false)
+}
+
+@Test func textRecognitionThatNeverFinishesIsGivenUpOnAndThePlainScanIsKept() async throws {
+    let rig = await Rig(withOcr: true, giveUp: 0.05, ocrDelay: 60)
+    defer { rig.cleanup() }
+    let outcome = await rig.runner.run(rig.profile("fake:ocr", name: "Fake OCR Scanner", ocr: true))
+    guard case .saved(let files, _, let searchable) = outcome else { Issue.record("\(outcome)"); return }
+    #expect(searchable == false && files.count == 1)
 }
 
 @Test func onlyOneProfileScanRunsAtATime() async {
@@ -103,7 +111,7 @@ private struct Rig {
     try? await Task.sleep(nanoseconds: 300_000_000)
     #expect(rig.runner.isRunning)
     let second = await rig.runner.run(slow)
-    #expect(second == .failed("Another profile scan is still running."))
+    #expect(second == .problem(.busy))
     _ = await first
     #expect(!rig.runner.isRunning)
 }

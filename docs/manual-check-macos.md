@@ -39,7 +39,8 @@ Use a test build on a free port (`cd macos && swift build && .build/debug/dossia
 Use a test folder for the saved scans, and delete the test profiles afterwards.
 
 - [ ] With the Pi's 8800F on and node-000 added: Scan profiles… › New… lists "Canon CanoScan 8800F (node-000)"; the form offers PDF, JPEG, PNG and paper sizes, no "Scan both sides".
-- [ ] Save a profile "8800F A4 JPEG" into a test folder and click it: the menu shows "Scanning “8800F A4 JPEG”…" and the other entries are greyed; a notification "1 page scanned" appears and a `scan_YYYY-MM-DD_HHMMSS.jpg` is in the folder.
+- [ ] A profile for one of the Mac's own scanners offers "Make the PDF searchable (OCR)".
+- [ ] Save a profile "8800F A4 JPEG" into a test folder and click it: the menu shows "Scanning “8800F A4 JPEG”…" and all profile entries are greyed; a notification "1 page scanned" appears and a `scan_YYYY-MM-DD_HHMMSS.jpg` is in the folder.
 - [ ] A PDF profile with "Make the PDF searchable (OCR)": the PDF is saved after the Pi's text recognition (up to 10 minutes) and its text can be selected in Preview.
 - [ ] The iX500 on the Pi with "Scan both sides": a feeder scan saves one PDF with all pages.
 - [ ] Switch the 8800F off and click a profile: a "Scan failed" notification names the reason and nothing is saved.

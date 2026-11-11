@@ -52,3 +52,29 @@ private func url(_ name: String) -> URL { URL(fileURLWithPath: "/tmp/\(name)") }
     let failed = Texts.english.profileScanSummary(.failed("No paper in the feeder."))
     #expect(failed.title == "Scan failed" && failed.body == "No paper in the feeder.")
 }
+
+@Test func summaryOfAPartialScanWithoutAMessageSaysItWasIncomplete() {
+    let s = Texts.english.profileScanSummary(.partial(files: [url("a.pdf")], message: nil))
+    #expect(s.title == "Scan incomplete" && s.body == "a.pdf — The scan was incomplete.")
+}
+
+@Test func theRunnersOwnProblemsHaveTexts() {
+    let t = Texts.english
+    #expect(t.profileScanProblemText(.busy) == "Another profile scan is still running.")
+    #expect(t.profileScanProblemText(.scannerMissing("Canon")) == "Canon isn't available right now.")
+    #expect(t.profileScanProblemText(.scanFailed) == "The scan failed.")
+    #expect(t.profileScanProblemText(.noPages) == "The scanner returned no pages.")
+    #expect(t.profileScanProblemText(.unreadable) == "The scan couldn't be read.")
+    #expect(t.profileScanProblemText(.incomplete) == "The scan was incomplete.")
+    let s = t.profileScanSummary(.problem(.noPages))
+    #expect(s.title == "Scan failed" && s.body == "The scanner returned no pages.")
+}
+
+@Test func theProblemLineFollowsTheOutcome() {
+    let t = Texts.english
+    #expect(t.profileScanProblemLine(.saved(files: [], pages: 1, searchable: nil)) == nil)
+    #expect(t.profileScanProblemLine(.failed("No paper.")) == "No paper.")
+    #expect(t.profileScanProblemLine(.problem(.busy)) == "Another profile scan is still running.")
+    #expect(t.profileScanProblemLine(.partial(files: [], message: "Jam.")) == "Jam.")
+    #expect(t.profileScanProblemLine(.partial(files: [], message: nil)) == "The scan was incomplete.")
+}

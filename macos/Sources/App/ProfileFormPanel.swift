@@ -34,6 +34,7 @@ final class ProfileFormPanel: NSPanel {
         isReleasedWhenClosed = false
         build()
         reload()
+        if let content = contentView { setContentSize(content.fittingSize) }
     }
 
     private var scanner: ScannerInfo? { scanners.first { $0.id == draft.scannerID } }

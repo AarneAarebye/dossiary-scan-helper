@@ -69,9 +69,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshScanners() {
         Task { [weak self] in
             guard let self else { return }
-            let local = await runtime.backend.listScanners()
-            let network = await runtime.remote?.listScanners() ?? []
-            await MainActor.run { self.scanners = local + network }
+            let all = await runtime.router.offeredScanners()
+            await MainActor.run { self.scanners = all }
         }
     }
 
@@ -190,11 +189,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .saved(let files, _, _):
             lastProfileScan = files.first?.lastPathComponent
             profileProblem = nil
-        case .partial(let files, let message):
+        case .partial(let files, _):
             lastProfileScan = files.first?.lastPathComponent
-            profileProblem = message
-        case .failed(let message):
-            profileProblem = message
+            profileProblem = L.profileScanProblemLine(outcome)
+        case .failed, .problem:
+            profileProblem = L.profileScanProblemLine(outcome)
         }
         let summary = L.profileScanSummary(outcome)
         notifier.notify(title: summary.title, body: summary.body)

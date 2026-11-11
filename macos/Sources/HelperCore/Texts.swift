@@ -57,9 +57,34 @@ public struct Texts: Sendable {
             let note = searchable == false ? " — " + t("The scan was saved without searchable text; text recognition didn't finish.") : ""
             return (title, names(files) + note)
         case .partial(let files, let message):
-            return (t("Scan incomplete"), names(files) + " — " + message)
+            return (t("Scan incomplete"), names(files) + " — " + (message ?? profileScanProblemText(.incomplete)))
         case .failed(let message):
             return (t("Scan failed"), message)
+        case .problem(let problem):
+            return (t("Scan failed"), profileScanProblemText(problem))
+        }
+    }
+
+    /// The runner's own failure texts (the scanner's and the system's messages are shown as they come).
+    public func profileScanProblemText(_ problem: ProfileScanProblem) -> String {
+        let t = self
+        switch problem {
+        case .busy: return t("Another profile scan is still running.")
+        case .scannerMissing(let name): return t("%@ isn't available right now.", name)
+        case .scanFailed: return t("The scan failed.")
+        case .noPages: return t("The scanner returned no pages.")
+        case .unreadable: return t("The scan couldn't be read.")
+        case .incomplete: return t("The scan was incomplete.")
+        }
+    }
+
+    /// The menu's problem line after a profile scan; nil when nothing went wrong.
+    public func profileScanProblemLine(_ outcome: ProfileScanOutcome) -> String? {
+        switch outcome {
+        case .saved: return nil
+        case .partial(_, let message): return message ?? profileScanProblemText(.incomplete)
+        case .failed(let message): return message
+        case .problem(let problem): return profileScanProblemText(problem)
         }
     }
 }
