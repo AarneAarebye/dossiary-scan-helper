@@ -54,4 +54,8 @@ Linux, macOS and Windows, and the macOS unit tests, localization tests and confo
   `picked-up.json`; folder setting `buttonScanFolder`.
 - Button press sound (0.6.1): `ButtonScanPickup.onButtonPress` plays Tink (color/bw/custom) or Glass
   (finish) via `ButtonPressSound`; menu switch backed by `ButtonPressSetting`; needs scanix500 0.10.1.
+- Scan profiles (0.7.0): the menu lists profiles (`ScanProfileStore`, `profiles.json` in Application Support) and "Scan profiles…"
+  opens the editor (`ScanProfilesPanel`, `ProfileFormPanel`). `ProfileScanRunner` scans through `Router.performScan`
+  (so exactly like a scan from Dossiary), waits for each file's OCR job (give up after 10 minutes, keep the plain scan)
+  and saves with `ButtonScanFolder.save(…, into:)`. `ScanProfileRules` is the one place that knows what a scanner offers.
 - `.worktrees/`, `.superpowers/`, and `macos/build`, `macos/dist`, `macos/.build*` are git-ignored.

@@ -33,3 +33,16 @@ Use a test build on a free port (`cd macos && swift build && .build/debug/dossia
 - [ ] PDF scans from the flatbed and from the feeder are unchanged; an image request from the feeder gets the 422 "Images can only be scanned from the flatbed."
 - [ ] Through the helper to the Pi: the 8800F lists its formats and areas, and a `10x15` JPEG scan comes back (about 20 s at 300 dpi).
 - [ ] Clean up: stop the test helper, revoke the test pairings, delete the test scans; confirm 8766 was never touched.
+
+## Scan profiles (0.7.0)
+
+Use a test folder for the saved scans, and delete the test profiles afterwards.
+
+- [ ] With the Pi's 8800F on and node-000 added: Scan profiles… › New… lists "Canon CanoScan 8800F (node-000)"; the form offers PDF, JPEG, PNG and paper sizes, no "Scan both sides".
+- [ ] Save a profile "8800F A4 JPEG" into a test folder and click it: the menu shows "Scanning “8800F A4 JPEG”…" and the other entries are greyed; a notification "1 page scanned" appears and a `scan_YYYY-MM-DD_HHMMSS.jpg` is in the folder.
+- [ ] A PDF profile with "Make the PDF searchable (OCR)": the PDF is saved after the Pi's text recognition (up to 10 minutes) and its text can be selected in Preview.
+- [ ] The iX500 on the Pi with "Scan both sides": a feeder scan saves one PDF with all pages.
+- [ ] Switch the 8800F off and click a profile: a "Scan failed" notification names the reason and nothing is saved.
+- [ ] Start a scan from Dossiary and click a profile at the same time: the profile reports "Another scan is still running" (only for scanners on the same Mac; two Pis' scanners are independent).
+- [ ] Edit a profile whose scanner is off: name and folder can change, the rest stays.
+- [ ] Quit and reopen the helper: the profiles are still there.

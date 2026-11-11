@@ -20,6 +20,17 @@ the helper is off. Each button press on the Pi also plays a
 sound (Pop for a scan button, Hero for finish); the menu item "Sound on button press" switches it
 off. The sound needs a scan server with scanix500 0.10.1 or newer. The calls are described in [`PROTOCOL.md`](../PROTOCOL.md) ("Button scans").
 
+**Scan profiles.** A profile is a saved scan: a name, a scanner, the scan settings (source, both sides,
+color, resolution, format, paper size, searchable PDF) and a folder. The menu lists the profiles; clicking
+one scans with those settings and saves the result in the profile's folder, as
+`scan_YYYY-MM-DD_HHMMSS.<ext>` (with `_1`, `_2`… for several files; an existing file is never overwritten).
+"Scan profiles…" opens the window where profiles are added, edited and removed; they are kept in
+`profiles.json` in the helper's Application Support folder. The scan goes through the same path as a scan
+from Dossiary, so only one scan runs at a time per scanner. With "Make the PDF searchable (OCR)" the helper
+waits up to 10 minutes for the text recognition, then keeps the plain scan. A Pi's scanner can only be used
+in a profile once the Pi has been added with "Add network scanner…". A profile whose scanner is off can
+still change its name and folder.
+
 To install a release, see [docs/install-macos.md](../docs/install-macos.md).
 
 ## Build and test
