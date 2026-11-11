@@ -46,4 +46,20 @@ public struct Texts: Sendable {
         case .tooLarge(let server): return t("%@ has a button scan that is too large to pick up.", server)
         }
     }
+
+    /// The notification for a finished profile scan. File names and the scanner's own messages are shown as they come.
+    public func profileScanSummary(_ outcome: ProfileScanOutcome) -> (title: String, body: String) {
+        let t = self
+        func names(_ files: [URL]) -> String { files.map(\.lastPathComponent).joined(separator: ", ") }
+        switch outcome {
+        case .saved(let files, let pages, let searchable):
+            let title = pages == 1 ? t("1 page scanned") : t("%lld pages scanned", pages)
+            let note = searchable == false ? " — " + t("The scan was saved without searchable text; text recognition didn't finish.") : ""
+            return (title, names(files) + note)
+        case .partial(let files, let message):
+            return (t("Scan incomplete"), names(files) + " — " + message)
+        case .failed(let message):
+            return (t("Scan failed"), message)
+        }
+    }
 }

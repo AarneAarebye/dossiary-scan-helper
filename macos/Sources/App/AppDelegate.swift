@@ -112,6 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func menuItemChosen(_ sender: NSMenuItem) {
         guard let action = sender.representedObject as? MenuAction else { return }
         switch action {
+        case .scanWithProfile, .editProfiles:
+            break // TEMPORARY until Task 6 handles profiles
         case .pair:
             pairingPanel.show()
         case .forget:

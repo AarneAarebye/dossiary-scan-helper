@@ -1,6 +1,8 @@
 public enum MenuAction: Equatable, Sendable {
     case pair, forget, startAtLogin, openLog, quit, addNetworkScanner, chooseButtonScanFolder, toggleButtonSound
     case removeNetworkScanner(String)
+    case scanWithProfile(String)
+    case editProfiles
 }
 
 public struct NetworkServerEntry: Equatable, Sendable {
@@ -20,6 +22,16 @@ public struct NetworkServerEntry: Equatable, Sendable {
     }
 }
 
+public struct ProfileMenuEntry: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let scannerName: String
+    public let scanning: Bool
+    public init(id: String, name: String, scannerName: String, scanning: Bool) {
+        self.id = id; self.name = name; self.scannerName = scannerName; self.scanning = scanning
+    }
+}
+
 public enum MenuEntry: Equatable, Sendable {
     case title(String)
     case info(String)
@@ -33,6 +45,8 @@ public enum MenuModel {
                                startAtLogin: Bool?, networkServers: [NetworkServerEntry]? = nil,
                                buttonScanFolder: String? = nil, lastButtonScan: String? = nil,
                                buttonScanProblem: ButtonScanProblem? = nil, buttonSound: Bool? = nil,
+                               profiles: [ProfileMenuEntry]? = nil, profileScanRunning: Bool = false,
+                               lastProfileScan: String? = nil, profileProblem: String? = nil,
                                texts t: Texts = .english) -> [MenuEntry] {
         var entries: [MenuEntry] = [
             .title(fake ? t("Dossiary Scan Helper — Fake Scanners") : "Dossiary Scan Helper"),
@@ -40,6 +54,17 @@ public enum MenuModel {
             .separator,
         ]
         entries += scanners.isEmpty ? [.info(t("No scanners found"))] : scanners.map { .info($0.name) }
+        if let profiles {
+            entries.append(.separator)
+            for profile in profiles {
+                let title = profile.scanning ? t("Scanning “%@”…", profile.name)
+                                             : t("Scan: %1$@ (%2$@)", profile.name, profile.scannerName)
+                entries.append(.action(title, .scanWithProfile(profile.id), checked: false, enabled: !profileScanRunning))
+            }
+            entries.append(.action(t("Scan profiles…"), .editProfiles, checked: false, enabled: true))
+            if let lastProfileScan { entries.append(.info(t("Last profile scan: %@", lastProfileScan))) }
+            if let profileProblem { entries.append(.info(profileProblem)) }
+        }
         entries += [
             .separator,
             .action(t("Pair a browser…"), .pair, checked: false, enabled: true),
