@@ -11,6 +11,8 @@ public final class HelperRuntime: @unchecked Sendable {
     public let buttonScanFolder: ButtonScanFolder?
     public let buttonScanPickup: ButtonScanPickup?
     public let buttonPressSetting: ButtonPressSetting?
+    public let profileStore: ScanProfileStore
+    public let profileRunner: ProfileScanRunner
     public let router: Router
     public let server: HTTPServer
     private let log: Log
@@ -54,6 +56,9 @@ public final class HelperRuntime: @unchecked Sendable {
         }
         router = Router(backend: backend, pairing: pairing, ocrJobs: ocrJobs, ocrLanguages: ocrLanguages, remote: remote,
                         log: write)
+        // Fake mode keeps its profiles in memory so test runs leave nothing behind.
+        profileStore = ScanProfileStore(fileURL: options.fakeScanners ? nil : ScanProfileStore.defaultFileURL)
+        profileRunner = ProfileScanRunner(router: router, writer: ButtonScanFolder())
         server = HTTPServer(port: options.port, router: router, log: write)
     }
 

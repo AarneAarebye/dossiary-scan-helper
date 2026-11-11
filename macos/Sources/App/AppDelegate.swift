@@ -10,6 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NetworkScannerPanel(store: store) { [weak self] in self?.refreshScanners() }
     }
 
+    private lazy var profilesPanel = ScanProfilesPanel(store: runtime.profileStore, scanners: { [weak self] in self?.scanners ?? [] },
+                                                       onChange: { })
+    private var lastProfileScan: String?
+    private var profileProblem: String?
+
     private let notifier = PickupNotifier()
 
     init(runtime: HelperRuntime) {
@@ -83,6 +88,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                         lastButtonScan: runtime.buttonScanPickup?.lastScan?.name,
                                         buttonScanProblem: runtime.buttonScanPickup?.lastProblem,
                                         buttonSound: runtime.buttonPressSetting?.isOn,
+                                        profiles: runtime.profileStore.profiles.map {
+                                            ProfileMenuEntry(id: $0.id, name: $0.name, scannerName: $0.scannerName,
+                                                             scanning: runtime.profileRunner.runningProfileID == $0.id)
+                                        },
+                                        profileScanRunning: runtime.profileRunner.isRunning,
+                                        lastProfileScan: lastProfileScan,
+                                        profileProblem: profileProblem,
                                         texts: L)
         for entry in entries {
             switch entry {
@@ -112,8 +124,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func menuItemChosen(_ sender: NSMenuItem) {
         guard let action = sender.representedObject as? MenuAction else { return }
         switch action {
-        case .scanWithProfile, .editProfiles:
-            break // TEMPORARY until Task 6 handles profiles
+        case .scanWithProfile(let id):
+            guard let profile = runtime.profileStore.profile(id: id) else { return }
+            Task { [weak self] in
+                guard let self else { return }
+                let outcome = await runtime.profileRunner.run(profile)
+                await MainActor.run { self.profileScanFinished(outcome) }
+            }
+        case .editProfiles:
+            profilesPanel.show()
         case .pair:
             pairingPanel.show()
         case .forget:
@@ -164,5 +183,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .quit:
             NSApp.terminate(nil)
         }
+    }
+
+    private func profileScanFinished(_ outcome: ProfileScanOutcome) {
+        switch outcome {
+        case .saved(let files, _, _):
+            lastProfileScan = files.first?.lastPathComponent
+            profileProblem = nil
+        case .partial(let files, let message):
+            lastProfileScan = files.first?.lastPathComponent
+            profileProblem = message
+        case .failed(let message):
+            profileProblem = message
+        }
+        let summary = L.profileScanSummary(outcome)
+        notifier.notify(title: summary.title, body: summary.body)
     }
 }
