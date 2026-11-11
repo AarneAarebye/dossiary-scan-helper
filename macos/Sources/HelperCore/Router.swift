@@ -106,13 +106,19 @@ public final class Router: @unchecked Sendable {
     }
 
     private func scan(_ request: HTTPRequest, origin: String?) async throws -> HTTPResponse {
-        let body = try request.jsonBody()
+        let (status, payload) = try await performScan(try request.jsonBody())
+        return .json(status, payload, origin: origin)
+    }
+
+    /// POST /scan without HTTP: validation, the scan gate, a local or network scanner, OCR jobs. The HTTP route and
+    /// the helper's own profile scans both run it, so a profile scan behaves exactly like one from Dossiary.
+    public func performScan(_ body: Any) async throws -> (status: Int, payload: [String: Any]) {
         let (scanner, settings) = try ScanRequestValidator.validate(body, scanners: await scanners())
         if let remote, remote.owns(scanner.id) {
             log("Scanning with \(scanner.name) over the network: \(settings.source.rawValue), \(settings.colorMode.rawValue), \(settings.resolution) dpi\(settings.duplex ? ", both sides" : "")\(settings.ocr ? ", searchable" : "").")
             let (status, payload) = try await remote.scan(scannerID: scanner.id, settings: settings)
             log(payload["message"] as? String ?? "Network scan finished.")
-            return .json(status, payload, origin: origin)
+            return (status, payload)
         }
         guard await gate.tryBegin() else {
             throw ProtocolError(409, "Another scan is still running. Try again when it has finished.")
@@ -142,8 +148,11 @@ public final class Router: @unchecked Sendable {
         }
         let payload = ScanResponse.payload(result, files: files, ocrJobs: jobs)
         log(payload["message"] as? String ?? "Scan finished.")
-        return .json(200, payload, origin: origin)
+        return (200, payload)
     }
+
+    /// The scanners as GET /scanners offers them (OCR languages filled in), for the helper's own menu and form.
+    public func offeredScanners() async -> [ScannerInfo] { await scanners() }
 
     /// The backend's scanners as offered: without a job queue nothing offers `ocr` (fake:ocr included);
     /// with one, scanners without their own list get the engine's languages.
@@ -158,22 +167,26 @@ public final class Router: @unchecked Sendable {
     }
 
     private func ocr(_ id: String, origin: String?) async -> HTTPResponse {
+        let (status, body) = await performOCR(id)
+        return .json(status, body, origin: origin)
+    }
+
+    /// GET /ocr/<job> without HTTP.
+    public func performOCR(_ id: String) async -> (status: Int, body: [String: Any]) {
         if let remote, remote.isRemoteJob(id) {
-            let (status, body) = await remote.fetchOCR(id)
-            return .json(status, body, origin: origin)
+            return await remote.fetchOCR(id)
         }
         let unknown = Router.errorBody("This text recognition job is unknown, already fetched, or expired.")
-        guard let ocrJobs else { return .json(404, unknown, origin: origin) }
+        guard let ocrJobs else { return (404, unknown) }
         switch await ocrJobs.fetch(id) {
         case .pending(let state, let position):
-            return .json(202, ["ok": true, "state": state, "position": position], origin: origin)
+            return (202, ["ok": true, "state": state, "position": position])
         case .done(let name, let pages, let pdf):
-            return .json(200, ["ok": true, "files": [["name": name, "pages": pages, "data": pdf.base64EncodedString()]]],
-                         origin: origin)
+            return (200, ["ok": true, "files": [["name": name, "pages": pages, "data": pdf.base64EncodedString()]]])
         case .failed(let message):
-            return .json(500, Router.errorBody(message), origin: origin)
+            return (500, Router.errorBody(message))
         case .unknown:
-            return .json(404, unknown, origin: origin)
+            return (404, unknown)
         }
     }
 
