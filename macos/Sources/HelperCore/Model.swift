@@ -1,7 +1,7 @@
 import Foundation
 
-public enum Source: String, Sendable { case flatbed, feeder }
-public enum ColorMode: String, Sendable { case color, gray, bw }
+public enum Source: String, Sendable, Codable { case flatbed, feeder }
+public enum ColorMode: String, Sendable, Codable { case color, gray, bw }
 
 /// One entry of GET /scanners.
 public struct ScannerInfo: Equatable, Sendable {
