@@ -33,12 +33,13 @@ public final class ButtonScanFolder: @unchecked Sendable {
 
     public func choose(_ url: URL) { defaults.set(url.path, forKey: key) }
 
-    /// Writes `data` as a new file named after `name` in the folder and returns its URL; never overwrites.
-    public func save(_ data: Data, named name: String) throws -> URL {
+    /// Writes `data` as a new file named after `name` in `target` (default: the button-scan folder) and returns its
+    /// URL; never overwrites. `extensions` are the suffixes a name may keep (see `safeName`).
+    public func save(_ data: Data, named name: String, into target: URL? = nil, extensions: [String] = ["pdf"]) throws -> URL {
         try lock.withLock {
             let fm = FileManager.default
-            let folder = url
-            let safe = Self.safeName(name)
+            let folder = target ?? url
+            let safe = Self.safeName(name, extensions: extensions)
             let stem = (safe as NSString).deletingPathExtension, ext = (safe as NSString).pathExtension
             var temp: URL?
             do {
@@ -76,9 +77,10 @@ public final class ButtonScanFolder: @unchecked Sendable {
     }
 
     /// Pure: the safe file name for a server-supplied name. Keeps the last path component, removes control and
-    /// format characters (Cc, Cf), turns ":" into "-", trims blanks, never starts with ".", guarantees a ".pdf"
-    /// suffix and at most 200 UTF-8 bytes (cut on a character boundary); an empty result becomes "scan.pdf".
-    public static func safeName(_ name: String) -> String {
+    /// format characters (Cc, Cf), turns ":" into "-", trims blanks, never starts with ".", ends in one of
+    /// `extensions` (the first one is appended when none matches; `["pdf"]` by default) and is at most 200 UTF-8
+    /// bytes (cut on a character boundary); an empty result becomes "scan.<first extension>".
+    public static func safeName(_ name: String, extensions: [String] = ["pdf"]) -> String {
         var s = name.unicodeScalars.filter { $0.properties.generalCategory != .control && $0.properties.generalCategory != .format }
             .map { String($0) }.joined()
         s = s.split(separator: "/", omittingEmptySubsequences: false).last.map(String.init) ?? ""
@@ -89,12 +91,16 @@ public final class ButtonScanFolder: @unchecked Sendable {
             while s.hasPrefix(".") { s.removeFirst() }
             if s == before { break }
         }
-        if s.isEmpty { return "scan.pdf" }
-        if !s.lowercased().hasSuffix(".pdf") { s += ".pdf" }
+        let first = extensions.first ?? "pdf"
+        if s.isEmpty { return "scan.\(first)" }
+        let kept = extensions.first { s.lowercased().hasSuffix(".\($0)") } ?? first
+        if !s.lowercased().hasSuffix(".\(kept)") { s += ".\(kept)" }
         if s.utf8.count > 200 {
-            var base = String(s.dropLast(4))
-            while base.utf8.count + 4 > 200 { base.removeLast() }
-            s = base + ".pdf"
+            let suffixLength = kept.count + 1               // extensions are ASCII
+            let suffix = String(s.suffix(suffixLength))
+            var base = String(s.dropLast(suffixLength))
+            while base.utf8.count + suffix.utf8.count > 200 { base.removeLast() }
+            s = base + suffix
         }
         return s
     }
