@@ -51,3 +51,14 @@ private func sample(_ name: String) -> ScanProfile {
     #expect(FileManager.default.fileExists(atPath: aside.path))
     #expect(!FileManager.default.fileExists(atPath: file.path))
 }
+
+@Test func aFailedWriteLeavesTheStoreUnchanged() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("profiles-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let blocker = dir.appendingPathComponent("blocker")
+    try Data("x".utf8).write(to: blocker)
+    let store = ScanProfileStore(fileURL: blocker.appendingPathComponent("profiles.json"))
+    #expect(throws: (any Error).self) { try store.save(sample("Letters")) }
+    #expect(store.profiles.isEmpty)
+}

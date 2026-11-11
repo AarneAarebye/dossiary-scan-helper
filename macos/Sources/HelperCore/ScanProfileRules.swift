@@ -43,6 +43,14 @@ public enum ScanProfileRules {
         p.duplex = p.duplex && o.duplexOffered
         if o.areas.isEmpty { p.area = nil }
         else if p.area.map(o.areas.contains) != true { p.area = o.areas[0] }
+        if let area = p.area, let size = areaSize(area, of: scanner),
+           Areas.isOverLimit(Areas.pixelCount(widthMM: size.width, heightMM: size.height, dpi: p.resolution)) {
+            // The validator's size limit: the highest offered resolution that fits, or the lowest there is.
+            let fitting = o.resolutions.filter {
+                !Areas.isOverLimit(Areas.pixelCount(widthMM: size.width, heightMM: size.height, dpi: $0))
+            }
+            p.resolution = fitting.max() ?? o.resolutions.min() ?? p.resolution
+        }
         if p.format == "pdf" && o.ocrOffered {
             p.ocrLanguages = p.ocrLanguages.filter(o.ocrLanguages.contains)
             if p.ocr && p.ocrLanguages.isEmpty { p.ocrLanguages = defaultLanguages(offered: o.ocrLanguages) }
@@ -50,6 +58,7 @@ public enum ScanProfileRules {
             p.ocr = false
             p.ocrLanguages = []
         }
+        if !p.ocr { p.ocrLanguages = [] }
         return p
     }
 
@@ -70,6 +79,12 @@ public enum ScanProfileRules {
         ScannerInfo(id: p.scannerID, name: p.scannerName, sources: [p.source], duplex: p.duplex, colorModes: [p.colorMode],
                     resolutions: [p.resolution], extras: [], ocrLanguages: p.ocr ? p.ocrLanguages : [],
                     formats: [p.format], areas: p.area.map { [$0] } ?? [])
+    }
+
+    /// The size of an area when it is known, as the validator knows it; nil means the limit cannot be checked.
+    private static func areaSize(_ area: String, of scanner: ScannerInfo) -> SizeMM? {
+        if area == Areas.full { return scanner.fullAreaMM }
+        return Areas.named(area).map { SizeMM(width: $0.widthMM, height: $0.heightMM) }
     }
 
     private static func nearest(_ value: Int, in list: [Int]) -> Int {

@@ -32,21 +32,24 @@ public final class ScanProfileStore: @unchecked Sendable {
     /// Adds the profile, or replaces the one with the same id.
     public func save(_ profile: ScanProfile) throws {
         try lock.withLock {
-            if let index = items.firstIndex(where: { $0.id == profile.id }) { items[index] = profile }
-            else { items.append(profile) }
-            try write()
+            var updated = items
+            if let index = updated.firstIndex(where: { $0.id == profile.id }) { updated[index] = profile }
+            else { updated.append(profile) }
+            try write(updated)
+            items = updated
         }
     }
 
     public func remove(id: String) throws {
         try lock.withLock {
-            items.removeAll { $0.id == id }
-            try write()
+            let updated = items.filter { $0.id != id }
+            try write(updated)
+            items = updated
         }
     }
 
     /// Call with the lock held.
-    private func write() throws {
+    private func write(_ items: [ScanProfile]) throws {
         guard let fileURL else { return }
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()

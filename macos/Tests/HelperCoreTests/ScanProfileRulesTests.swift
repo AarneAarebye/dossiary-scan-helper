@@ -96,3 +96,40 @@ private func profile(_ scanner: ScannerInfo, source: Source = .flatbed, duplex: 
     #expect(placeholder.id == p.scannerID && placeholder.name == p.scannerName)
     #expect(ScanProfileRules.normalized(p, for: placeholder) == p)
 }
+
+@Test func normalizingLowersTheResolutionToTheSizeLimit() throws {
+    let p = ScanProfileRules.normalized(profile(flatbedPi, resolution: 1200, area: "a4"), for: flatbedPi)
+    #expect(p.resolution == 600)
+    _ = try ScanRequestValidator.validate(ScanProfileRules.requestBody(p), scanners: [flatbedPi])
+}
+
+@Test func aWholeGlassOfUnknownSizeIsNotLimited() {
+    #expect(ScanProfileRules.normalized(profile(flatbedPi, resolution: 1200, area: "full"), for: flatbedPi).resolution == 1200)
+}
+
+@Test func aKnownWholeGlassIsLimited() throws {
+    var scanner = flatbedPi
+    scanner.fullAreaMM = SizeMM(width: 216, height: 297)
+    let p = ScanProfileRules.normalized(profile(scanner, resolution: 1200, area: "full"), for: scanner)
+    #expect(p.resolution == 600)
+    _ = try ScanRequestValidator.validate(ScanProfileRules.requestBody(p), scanners: [scanner])
+}
+
+@Test func normalizingIsIdempotent() {
+    let cases: [(ScannerInfo, ScanProfile)] = [
+        (flatbedPi, profile(flatbedPi, duplex: true, resolution: 1200, format: "jpeg", area: "a4", ocr: true, languages: ["fra"])),
+        (flatbedPi, profile(flatbedPi, color: .bw, format: "jpeg")),
+        (feederPi, profile(flatbedPi, resolution: 1200, format: "png", area: "a4")),
+        (feederPi, profile(feederPi, source: .feeder, ocr: true, languages: [])),
+    ]
+    for (scanner, raw) in cases {
+        let once = ScanProfileRules.normalized(raw, for: scanner)
+        #expect(ScanProfileRules.normalized(once, for: scanner) == once)
+    }
+}
+
+@Test func languagesAreDroppedWithoutOcrAndThePlaceholderRoundTrips() {
+    let p = ScanProfileRules.normalized(profile(feederPi, source: .feeder, ocr: false, languages: ["eng"]), for: feederPi)
+    #expect(p.ocrLanguages.isEmpty)
+    #expect(ScanProfileRules.normalized(p, for: ScanProfileRules.placeholderScanner(for: p)) == p)
+}
