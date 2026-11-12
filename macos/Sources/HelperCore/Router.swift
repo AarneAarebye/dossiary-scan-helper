@@ -113,6 +113,38 @@ public final class Router: @unchecked Sendable {
     /// POST /scan without HTTP: validation, the scan gate, a local or network scanner, OCR jobs. The HTTP route and
     /// the helper's own profile scans both run it, so a profile scan behaves exactly like one from Dossiary.
     public func performScan(_ body: Any) async throws -> (status: Int, payload: [String: Any]) {
+        scanStarted()
+        defer { scanEnded() }
+        return try await runScan(body)
+    }
+
+    /// Called (from any thread) with true when the first scan starts and false when the last one ends, for the
+    /// menu bar icon. Local and network scans both count.
+    public var onScanningChanged: (@Sendable (Bool) -> Void)? {
+        get { scanLock.withLock { scanCallback } }
+        set { scanLock.withLock { scanCallback = newValue } }
+    }
+    private let scanLock = NSLock()
+    private var scanCallback: (@Sendable (Bool) -> Void)?
+    private var activeScans = 0
+
+    private func scanStarted() {
+        let callback: (@Sendable (Bool) -> Void)? = scanLock.withLock {
+            activeScans += 1
+            return activeScans == 1 ? scanCallback : nil
+        }
+        callback?(true)
+    }
+
+    private func scanEnded() {
+        let callback: (@Sendable (Bool) -> Void)? = scanLock.withLock {
+            activeScans -= 1
+            return activeScans == 0 ? scanCallback : nil
+        }
+        callback?(false)
+    }
+
+    private func runScan(_ body: Any) async throws -> (status: Int, payload: [String: Any]) {
         let (scanner, settings) = try ScanRequestValidator.validate(body, scanners: await scanners())
         if let remote, remote.owns(scanner.id) {
             log("Scanning with \(scanner.name) over the network: \(settings.source.rawValue), \(settings.colorMode.rawValue), \(settings.resolution) dpi\(settings.duplex ? ", both sides" : "")\(settings.ocr ? ", searchable" : "").")

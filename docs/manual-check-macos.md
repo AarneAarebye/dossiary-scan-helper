@@ -47,3 +47,8 @@ Use a test folder for the saved scans, and delete the test profiles afterwards.
 - [ ] Start a scan from Dossiary and click a profile at the same time: the profile reports "Another scan is still running" (only for scanners on the same Mac; two Pis' scanners are independent).
 - [ ] Edit a profile whose scanner is off: name and folder can change, the rest stays.
 - [ ] Quit and reopen the helper: the profiles are still there.
+
+## Scan icon (0.7.1)
+
+- While any scan runs (a profile scan or one from Dossiary), the menu bar icon alternates between the outline and the filled scanner; it returns to the outline when the last scan ends, also after a failed one.
+- The "Scan profiles" form fits its window in every language, with Cancel and Save on the right, and OCR languages is a menu of named languages.

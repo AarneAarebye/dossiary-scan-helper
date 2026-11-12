@@ -38,11 +38,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "scanner", accessibilityDescription: "Dossiary Scan Helper")
+        item.button?.image = Self.icon(filled: false)
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
         statusItem = item
+        runtime.router.onScanningChanged = { [weak self] scanning in
+            DispatchQueue.main.async { self?.setScanningIcon(scanning) }
+        }
         runtime.backend.setChangeHandler { [weak self] in DispatchQueue.main.async { self?.refreshScanners() } }
         refreshScanners()
     }
@@ -64,6 +67,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             sender.terminate(nil)
         }
         return .terminateCancel
+    }
+
+    private static func icon(filled: Bool) -> NSImage? {
+        NSImage(systemSymbolName: filled ? "scanner.fill" : "scanner", accessibilityDescription: "Dossiary Scan Helper")
+    }
+
+    private var iconTimer: Timer?
+
+    /// While any scan runs the menu bar icon alternates between the outline and the filled scanner.
+    private func setScanningIcon(_ scanning: Bool) {
+        iconTimer?.invalidate()
+        iconTimer = nil
+        statusItem?.button?.image = Self.icon(filled: scanning)
+        guard scanning else { return }
+        var filled = true
+        iconTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            filled.toggle()
+            self?.statusItem?.button?.image = Self.icon(filled: filled)
+        }
     }
 
     private func refreshScanners() {

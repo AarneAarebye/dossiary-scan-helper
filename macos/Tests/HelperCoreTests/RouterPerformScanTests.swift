@@ -29,3 +29,26 @@ private func makeRouter() -> Router { Router(backend: FakeBackend(), pairing: Pa
     let (status, _) = await makeRouter().performOCR("does-not-exist-0123456789")
     #expect(status == 404)
 }
+
+private final class Seen: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [Bool] = []
+    func add(_ value: Bool) { lock.withLock { values.append(value) } }
+    var all: [Bool] { lock.withLock { values } }
+}
+
+@Test func aScanReportsStartAndEndToTheIcon() async throws {
+    let router = makeRouter()
+    let seen = Seen()
+    router.onScanningChanged = { seen.add($0) }
+    _ = try await router.performScan(["scanner": "fake:flatbed"])
+    #expect(seen.all == [true, false])
+}
+
+@Test func aRefusedScanStillEndsTheIconState() async {
+    let router = makeRouter()
+    let seen = Seen()
+    router.onScanningChanged = { seen.add($0) }
+    _ = try? await router.performScan(["scanner": "nope"])
+    #expect(seen.all == [true, false])
+}

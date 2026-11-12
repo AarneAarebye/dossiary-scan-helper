@@ -3282,42 +3282,42 @@
         }
       }
     },
-    "OCR languages (codes, e.g. deu, eng)": {
+    "OCR languages": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "OCR-Sprachen (Kürzel, z. B. deu, eng)"
+            "value": "OCR-Sprachen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Idiomas de OCR (códigos, p. ej. deu, eng)"
+            "value": "Idiomas de OCR"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Langues de l'OCR (codes, p. ex. deu, eng)"
+            "value": "Langues de l'OCR"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "OCR 语言（代码，例如 deu、eng）"
+            "value": "OCR 语言"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "OCR 語言（代碼，例如 deu、eng）"
+            "value": "OCR 語言"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "OCR լեզուներ (կոդեր, օր.՝ deu, eng)"
+            "value": "OCR լեզուներ"
           }
         }
       }

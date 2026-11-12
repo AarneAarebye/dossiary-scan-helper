@@ -18,7 +18,8 @@ final class ProfileFormPanel: NSPanel {
     private let formatPopup = NSPopUpButton()
     private let areaPopup = NSPopUpButton()
     private let ocrBox = NSButton(checkboxWithTitle: L("Make the PDF searchable (OCR)"), target: nil, action: nil)
-    private let languagesField = NSTextField()
+    private let languagesPopup = NSPopUpButton(frame: .zero, pullsDown: true)
+    private var offeredLanguages: [String] = []
     private let messageLabel = NSTextField(wrappingLabelWithString: "")
     private var grid = NSGridView()
     private enum Row: Int { case name, scanner, folder, source, duplex, color, resolution, format, area, ocr, languages }
@@ -34,7 +35,16 @@ final class ProfileFormPanel: NSPanel {
         isReleasedWhenClosed = false
         build()
         reload()
-        if let content = contentView { setContentSize(content.fittingSize) }
+        fitToContent()
+    }
+
+    /// Resizes the window to what the visible rows need, keeping its top-left corner.
+    private func fitToContent() {
+        guard let content = contentView else { return }
+        content.layoutSubtreeIfNeeded()
+        let top = frame.maxY
+        setContentSize(content.fittingSize)
+        setFrameTopLeftPoint(NSPoint(x: frame.minX, y: top))
     }
 
     private var scanner: ScannerInfo? { scanners.first { $0.id == draft.scannerID } }
@@ -48,15 +58,23 @@ final class ProfileFormPanel: NSPanel {
         save.keyEquivalent = "\r"
         let cancel = NSButton(title: L("Cancel"), target: self, action: #selector(cancelClicked))
         cancel.keyEquivalent = "\u{1b}"
-        let buttons = NSStackView(views: [cancel, save])
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let buttons = NSStackView(views: [spacer, cancel, save])
         buttons.spacing = 12
 
-        func label(_ text: String) -> NSTextField { NSTextField(labelWithString: text) }
+        func label(_ text: String) -> NSTextField {
+            let field = NSTextField(wrappingLabelWithString: text)
+            field.alignment = .right
+            field.preferredMaxLayoutWidth = 150
+            field.widthAnchor.constraint(equalToConstant: 150).isActive = true
+            return field
+        }
         let rows: [[NSView]] = [
             [label(L("Name")), nameField], [label(L("Scanner")), scannerPopup], [label(L("Folder")), folderRow],
             [label(L("Source")), sourcePopup], [NSView(), duplexBox], [label(L("Mode")), colorPopup],
             [label(L("Resolution")), resolutionPopup], [label(L("Format")), formatPopup], [label(L("Paper size")), areaPopup],
-            [NSView(), ocrBox], [label(L("OCR languages (codes, e.g. deu, eng)")), languagesField],
+            [NSView(), ocrBox], [label(L("OCR languages")), languagesPopup],
         ]
         grid = NSGridView(views: rows)
         grid.column(at: 0).xPlacement = .trailing
@@ -73,10 +91,20 @@ final class ProfileFormPanel: NSPanel {
         stack.orientation = .vertical
         stack.alignment = .trailing
         stack.spacing = 14
-        stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
-        contentView = stack
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        let container = NSView()
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 24),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -24),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 28),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -28),
+        ])
+        buttons.translatesAutoresizingMaskIntoConstraints = false
+        buttons.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        contentView = container
         nameField.widthAnchor.constraint(equalToConstant: 280).isActive = true
-        languagesField.widthAnchor.constraint(equalToConstant: 280).isActive = true
+        languagesPopup.widthAnchor.constraint(equalToConstant: 280).isActive = true
         folderField.widthAnchor.constraint(equalToConstant: 200).isActive = true
     }
 
@@ -94,13 +122,14 @@ final class ProfileFormPanel: NSPanel {
         fill(areaPopup, o.areas.map { ($0, Self.areaTitle($0)) }, selected: draft.area)
         duplexBox.state = draft.duplex ? .on : .off
         ocrBox.state = draft.ocr ? .on : .off
-        languagesField.stringValue = draft.ocrLanguages.joined(separator: ", ")
+        fillLanguages(offered: o.ocrLanguages)
         grid.row(at: Row.source.rawValue).isHidden = o.sources.count < 2
         grid.row(at: Row.duplex.rawValue).isHidden = !o.duplexOffered
         grid.row(at: Row.area.rawValue).isHidden = o.areas.isEmpty
         let ocrShown = o.ocrOffered && draft.format == "pdf"
         grid.row(at: Row.ocr.rawValue).isHidden = !ocrShown
         grid.row(at: Row.languages.rawValue).isHidden = !(ocrShown && draft.ocr)
+        fitToContent()
     }
 
     private func fill(_ popup: NSPopUpButton, _ items: [(String, String)], selected: String?) {
@@ -110,6 +139,35 @@ final class ProfileFormPanel: NSPanel {
             popup.lastItem?.representedObject = value
         }
         if let index = items.firstIndex(where: { $0.0 == selected }) { popup.selectItem(at: index) }
+    }
+
+    /// A pull-down of the offered languages, each a checkable item; the title lists the chosen ones.
+    private func fillLanguages(offered: [String]) {
+        offeredLanguages = offered
+        languagesPopup.removeAllItems()
+        let names = offered.map { Self.languageName($0) }
+        let picked = offered.filter { draft.ocrLanguages.contains($0) }
+        languagesPopup.addItem(withTitle: picked.map { Self.languageName($0) }.joined(separator: ", "))
+        for (code, name) in zip(offered, names) {
+            let item = NSMenuItem(title: name, action: #selector(languageToggled(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = code
+            item.state = draft.ocrLanguages.contains(code) ? .on : .off
+            languagesPopup.menu?.addItem(item)
+        }
+    }
+
+    private static func languageName(_ code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code)?.capitalized ?? code
+    }
+
+    @objc private func languageToggled(_ sender: NSMenuItem) {
+        guard let code = sender.representedObject as? String else { return }
+        readControls()
+        if draft.ocrLanguages.contains(code) { draft.ocrLanguages.removeAll { $0 == code } }
+        else { draft.ocrLanguages = offeredLanguages.filter { draft.ocrLanguages.contains($0) || $0 == code } }
+        if let scanner { draft = ScanProfileRules.normalized(draft, for: scanner) }
+        reload()
     }
 
     private func chosen(_ popup: NSPopUpButton) -> String? { popup.selectedItem?.representedObject as? String }
@@ -134,7 +192,6 @@ final class ProfileFormPanel: NSPanel {
         if let f = chosen(formatPopup) { draft.format = f }
         draft.area = chosen(areaPopup)
         draft.ocr = ocrBox.state == .on
-        draft.ocrLanguages = languagesField.stringValue.split(whereSeparator: { ", ".contains($0) }).map(String.init)
     }
 
     @objc private func scannerChanged() {
