@@ -121,6 +121,15 @@ final class ScanProfilesPanel: NSPanel, NSTableViewDataSource, NSTableViewDelega
 
     @objc private func deleteClicked() {
         guard let profile = selected else { return }
+        let confirm = NSAlert()
+        confirm.messageText = L("Delete the profile “%@”?", profile.name)
+        confirm.informativeText = L("The profile is removed. Files it has already scanned stay in their folder.")
+        confirm.alertStyle = .warning
+        let delete = confirm.addButton(withTitle: L("Delete"))
+        delete.hasDestructiveAction = true
+        confirm.addButton(withTitle: L("Cancel"))
+        NSApp.activate(ignoringOtherApps: true)
+        guard confirm.runModal() == .alertFirstButtonReturn else { return }
         do { try store.remove(id: profile.id) } catch {
             let alert = NSAlert(error: error)
             NSApp.activate(ignoringOtherApps: true)

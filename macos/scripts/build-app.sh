@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds an unsigned universal "Dossiary Scan Helper.app" into macos/build/.
+# Builds a universal "Dossiary Scan Helper.app" into macos/build/ (signed with the Developer ID if available).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VERSION=$(sed -n 's/.*static let string = "\(.*\)".*/\1/p' Sources/HelperCore/Version.swift)
@@ -17,4 +17,12 @@ plutil -lint "$APP/Contents/Info.plist"
 python3 scripts/strings_from_catalog.py --out "$APP/Contents/Resources" Localization/Localizable.xcstrings Localization/InfoPlist.xcstrings > /dev/null
 for f in "$APP"/Contents/Resources/*.lproj/*.strings; do plutil -lint -s "$f"; done
 lipo -archs "$APP/Contents/MacOS/dossiary-scan-helper"
+# Sign with the Developer ID when it is in the keychain (not notarized: that is sign-and-notarize.sh). A stable
+# signature keeps the Keychain's "Always Allow" for the remote-server tokens across rebuilds; an ad-hoc one makes
+# every rebuild a new app that asks again. Without the certificate the app stays unsigned (ad hoc).
+IDENTITY="${DEVELOPER_ID:-Developer ID Application}"
+if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$IDENTITY"; then
+  codesign --force --sign "$IDENTITY" "$APP"
+  echo "Signed with $IDENTITY"
+fi
 echo "Built $APP ($VERSION)"

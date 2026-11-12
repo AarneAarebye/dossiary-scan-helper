@@ -3841,6 +3841,86 @@
           }
         }
       }
+    },
+    "Delete the profile “%@”?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Profil „%@“ löschen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar el perfil «%@»?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer le profil « %@ » ?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除配置文件“%@”？"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除設定檔「%@」？"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ջնջե՞լ «%@» պրոֆիլը։"
+          }
+        }
+      }
+    },
+    "The profile is removed. Files it has already scanned stay in their folder.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Profil wird entfernt. Dateien, die damit bereits gescannt wurden, bleiben in ihrem Ordner."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se elimina el perfil. Los archivos ya escaneados con él permanecen en su carpeta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le profil est supprimé. Les fichiers déjà numérisés avec lui restent dans leur dossier."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将移除该配置文件。已用它扫描的文件会保留在原文件夹中。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將移除該設定檔。已用它掃描的檔案會保留在原資料夾中。"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Պրոֆիլը կհեռացվի։ Դրանով արդեն սկանավորված ֆայլերը կմնան իրենց թղթապանակում։"
+          }
+        }
+      }
     }
   }
 }
