@@ -12,7 +12,7 @@ final class NetworkScannerPanel: NSPanel {
     private let addressField = NSTextField(string: "")
     private let detailLabel = NSTextField(wrappingLabelWithString: L("Looking for scan servers on the network…"))
     private let codeField = NSTextField(string: "")
-    private let buttonPairButton = NSButton(title: L("Pair using the Scan button"), target: nil, action: nil)
+    private let buttonPairButton = NSButton(title: L("Pair using the iX500 Scan button"), target: nil, action: nil)
     private let codePairButton = NSButton(title: L("Pair with code"), target: nil, action: nil)
     private var probe: RemoteProbe?
     private var busy = false
@@ -36,8 +36,19 @@ final class NetworkScannerPanel: NSPanel {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 18, left: 18, bottom: 18, right: 18)
-        contentView = stack
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        detailLabel.preferredMaxLayoutWidth = 404
+        detailLabel.widthAnchor.constraint(equalToConstant: 404).isActive = true
+        let container = NSView()
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 18),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -18),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 18),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -18),
+        ])
+        contentView = container
+        setContentSize(NSSize(width: 440, height: 330))
         discovery.onChange = { [weak self] in self?.refreshPopup() }
         setPairingEnabled(false)
     }
@@ -92,7 +103,7 @@ final class NetworkScannerPanel: NSPanel {
                 probe = found
                 detailLabel.stringValue = L("%1$@ at %2$@", found.name, host) + "\n"
                     + L("Fingerprint: %@", RemoteFingerprint.display(found.fingerprint)) + "\n"
-                    + L("The fingerprint should match the output of “scanix500-server status” on the Pi. Then click the button below and, within 2 minutes, press the Scan button on the iX500—or enter a code from “sudo scanix500-server pair”.")
+                    + L("The fingerprint should match the output of “scanix500-server status” on the Pi. Then enter a code from “sudo scanix500-server pair”, run on the Pi—or, if an iX500 is connected to it, click the button below and press its Scan button within 2 minutes.")
                 setPairingEnabled(true)
             } catch {
                 probe = nil

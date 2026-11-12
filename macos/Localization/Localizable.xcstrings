@@ -922,42 +922,42 @@
         }
       }
     },
-    "Pair using the Scan button": {
+    "Pair using the iX500 Scan button": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mit der Scan-Taste koppeln"
+            "value": "Mit der Scan-Taste des iX500 koppeln"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Emparejar con el botón Scan"
+            "value": "Emparejar con el botón Scan del iX500"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Associer avec le bouton Scan"
+            "value": "Appairer avec la touche Scan de l'iX500"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用扫描按钮配对"
+            "value": "使用 iX500 的 Scan 键配对"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "用掃描按鈕配對"
+            "value": "使用 iX500 的 Scan 鍵配對"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Զուգակցել Scan կոճակով"
+            "value": "Զուգակցել iX500-ի Scan կոճակով"
           }
         }
       }
@@ -1362,42 +1362,42 @@
         }
       }
     },
-    "The fingerprint should match the output of “scanix500-server status” on the Pi. Then click the button below and, within 2 minutes, press the Scan button on the iX500—or enter a code from “sudo scanix500-server pair”.": {
+    "The fingerprint should match the output of “scanix500-server status” on the Pi. Then enter a code from “sudo scanix500-server pair”, run on the Pi—or, if an iX500 is connected to it, click the button below and press its Scan button within 2 minutes.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Fingerabdruck sollte mit der Ausgabe von „scanix500-server status“ auf dem Pi übereinstimmen. Klicke dann unten auf die Schaltfläche und drücke innerhalb von 2 Minuten die Scan-Taste am iX500 – oder gib einen Code von „sudo scanix500-server pair“ ein."
+            "value": "Der Fingerabdruck sollte mit der Ausgabe von „scanix500-server status“ auf dem Pi übereinstimmen. Gib dann einen Code von „sudo scanix500-server pair“ ein, auf dem Pi ausgeführt – oder klicke, falls ein iX500 daran angeschlossen ist, unten auf die Taste und drücke innerhalb von 2 Minuten dessen Scan-Taste."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La huella digital debe coincidir con la salida de «scanix500-server status» en la Pi. Luego haga clic en el botón de abajo y, en menos de 2 minutos, pulse el botón Scan del iX500, o escriba un código de «sudo scanix500-server pair»."
+            "value": "La huella debe coincidir con la salida de «scanix500-server status» en la Pi. Después introduce un código de «sudo scanix500-server pair», ejecutado en la Pi, o, si tiene un iX500 conectado, pulsa el botón de abajo y, en 2 minutos, el botón Scan del iX500."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'empreinte doit correspondre à la sortie de « scanix500-server status » sur le Pi. Cliquez ensuite sur le bouton ci-dessous puis, dans les 2 minutes, appuyez sur le bouton Scan de l'iX500 — ou saisissez un code obtenu avec « sudo scanix500-server pair »."
+            "value": "L'empreinte doit correspondre à la sortie de « scanix500-server status » sur le Pi. Saisissez ensuite un code de « sudo scanix500-server pair », exécuté sur le Pi — ou, si un iX500 y est branché, cliquez sur le bouton ci-dessous et appuyez sur sa touche Scan dans les 2 minutes."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "指纹应与树莓派上“scanix500-server status”的输出一致。然后点击下方按钮，并在 2 分钟内按下 iX500 上的扫描按钮——或输入“sudo scanix500-server pair”给出的代码。"
+            "value": "指纹应与 Pi 上“scanix500-server status”的输出一致。然后输入在 Pi 上运行“sudo scanix500-server pair”得到的代码；如果 Pi 上连接了 iX500，也可点击下方按钮，并在 2 分钟内按下它的 Scan 键。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "指紋應與樹莓派上“scanix500-server status”的輸出一致。然後點擊下方按鈕，並在 2 分鐘內按下 iX500 上的掃描按鈕——或輸入“sudo scanix500-server pair”給出的代碼。"
+            "value": "指紋應與 Pi 上「scanix500-server status」的輸出一致。然後輸入在 Pi 上執行「sudo scanix500-server pair」得到的代碼；如果 Pi 上連接了 iX500，也可按下方按鈕，並在 2 分鐘內按下它的 Scan 鍵。"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Մատնահետքը պետք է համընկնի Pi-ի վրա «scanix500-server status»-ի ելքի հետ։ Ապա սեղմեք ներքևի կոճակը և 2 րոպեի ընթացքում սեղմեք iX500-ի Scan կոճակը, կամ մուտքագրեք «sudo scanix500-server pair»-ի տված կոդը։"
+            "value": "Մատնահետքը պետք է համընկնի Pi-ի վրա «scanix500-server status»-ի արդյունքի հետ։ Հետո մուտքագրեք Pi-ի վրա կատարված «sudo scanix500-server pair»-ի կոդը, կամ եթե դրան iX500 է միացված, սեղմեք ներքևի կոճակը և 2 րոպեի ընթացքում սեղմեք նրա Scan կոճակը։"
           }
         }
       }
@@ -3522,42 +3522,82 @@
         }
       }
     },
-    "No scanners are available yet. Add a network scanner or connect one first.": {
+    "No scanners are available right now.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Noch kein Scanner verfügbar. Zuerst einen Netzwerkscanner hinzufügen oder einen anschließen."
+            "value": "Im Moment sind keine Scanner verfügbar."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aún no hay escáneres disponibles. Primero se debe añadir un escáner de red o conectar uno."
+            "value": "Ahora mismo no hay escáneres disponibles."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun scanner disponible pour l'instant. Ajoutez d'abord un scanner réseau ou branchez-en un."
+            "value": "Aucun scanner n'est disponible pour le moment."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "暂无可用的扫描仪。请先添加网络扫描仪或连接一台。"
+            "value": "目前没有可用的扫描仪。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "目前沒有可用的掃描器。請先新增網路掃描器或連接一台。"
+            "value": "目前沒有可用的掃描器。"
           }
         },
         "hy": {
           "stringUnit": {
             "state": "translated",
-            "value": "Դեռ հասանելի սկաներ չկա։ Նախ ավելացրեք ցանցային սկաներ կամ միացրեք մեկը։"
+            "value": "Այս պահին սկաներներ հասանելի չեն։"
+          }
+        }
+      }
+    },
+    "Check that the scanner is switched on and connected. A network scanner that needs pairing has to be paired again from the menu.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfe, ob der Scanner eingeschaltet und angeschlossen ist. Ein Netzwerkscanner, der gekoppelt werden muss, wird im Menü erneut gekoppelt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba que el escáner está encendido y conectado. Un escáner de red que necesita emparejarse debe emparejarse de nuevo desde el menú."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez que le scanner est allumé et connecté. Un scanner réseau à appairer doit être appairé à nouveau depuis le menu."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请检查扫描仪是否已开机并连接。需要配对的网络扫描仪必须从菜单中重新配对。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請檢查掃描器是否已開機並連接。需要配對的網路掃描器必須從選單中重新配對。"
+          }
+        },
+        "hy": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ստուգեք, որ սկաները միացված է և կապակցված։ Զուգակցում պահանջող ցանցային սկաները պետք է նորից զուգակցել ընտրացանկից։"
           }
         }
       }

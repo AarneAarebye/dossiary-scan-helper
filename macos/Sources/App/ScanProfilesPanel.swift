@@ -82,7 +82,8 @@ final class ScanProfilesPanel: NSPanel, NSTableViewDataSource, NSTableViewDelega
         let available = scanners()
         guard let first = available.first else {
             let alert = NSAlert()
-            alert.messageText = L("No scanners are available yet. Add a network scanner or connect one first.")
+            alert.messageText = L("No scanners are available right now.")
+            alert.informativeText = L("Check that the scanner is switched on and connected. A network scanner that needs pairing has to be paired again from the menu.")
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
             return
