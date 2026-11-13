@@ -86,3 +86,7 @@ Nothing here goes into the repo or CI.
        xcrun notarytool store-credentials dossiary-notary --apple-id <your Apple ID> --team-id <your team id>
 
    The team id is on developer.apple.com › Membership details.
+
+   **Or an API key.** If `~/.config/apple-api/` holds an App Store Connect key of the app-manager role
+   (`AuthKey_*APP_MANAGER_<keyid>.p8`) and an `api-key.env` with `ISSUER=<issuer id>`, the script uses that
+   key first and the keychain profile is not needed. Keep the folder mode 700 and the files 600.
