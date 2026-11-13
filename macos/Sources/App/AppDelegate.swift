@@ -74,9 +74,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private var iconTimer: Timer?
+    private var isScanning = false
 
     /// While any scan runs the menu bar icon alternates between the outline and the filled scanner.
     private func setScanningIcon(_ scanning: Bool) {
+        isScanning = scanning
         iconTimer?.invalidate()
         iconTimer = nil
         statusItem?.button?.image = Self.icon(filled: scanning)
@@ -202,6 +204,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 alert.runModal()
             }
         case .quit:
+            // Only the menu (and ⌘Q) asks; a logout or SIGTERM must not wait for an answer.
+            if isScanning {
+                let alert = NSAlert()
+                alert.messageText = L("A scan is still running.")
+                alert.informativeText = L("If you quit now, the scan stops and its pages are lost.")
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: L("Keep scanning"))
+                alert.addButton(withTitle: L("Quit")).hasDestructiveAction = true
+                NSApp.activate(ignoringOtherApps: true)
+                guard alert.runModal() == .alertSecondButtonReturn else { return }
+            }
             NSApp.terminate(nil)
         }
     }
