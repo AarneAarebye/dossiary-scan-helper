@@ -82,4 +82,4 @@ library is a second step. With a hand-over the profile's one click scans and fil
 - Docs: `AGENTS.md` bullet, `macos/README.md` section, `docs/manual-check-macos.md` steps (scan with the switch on and the Mac
   app closed, open and with no library), the Mac app's `AGENTS.md`/README line, parity checklist row "Scanning" notes the
   hand-over (the row stays `open` until option 2).
-- Releases: helper 0.8.0 (notarized zip, install, pointer) and Mac 0.5.1 (same), in that order or together.
+- Releases: helper 0.8.0 (notarized zip, install, pointer) and Mac 0.5.1 (same), Mac app first, then the helper: an older Mac app has no open handler, so the helper would still report "Sent to Dossiary." while nothing is added.

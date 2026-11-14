@@ -62,7 +62,7 @@ Linux, macOS and Windows, and the macOS unit tests, localization tests and confo
   Dossiary for Mac is installed or the profile already has it on). `ProfileScanRunner.runAndHandOver` runs the
   scan, then calls the hand-over closure with the saved files; `DossiaryHandOver` (App) sends them with
   `NSWorkspace.open(_:withApplicationAt:)`, i.e. the system's open-documents event, to bundle id
-  `com.aarneaarebye.dossiary-mac`. No custom URL scheme on purpose: a web page could trigger one. The caller
+  `com.aarneaarebye.dossiary-mac`. The target is chosen by `HandOverTarget.choose` (HelperCore): the running app, then /Applications/Dossiary/Dossiary.app (bundle id checked), then LaunchServices; needs Dossiary for Mac 0.5.1 or later. No custom URL scheme on purpose: a web page could trigger one. The caller
   must be unsandboxed (a sandboxed process gets kLSAppDoesNotClaimTypeErr for an app without document types);
   the helper is not sandboxed (no `com.apple.security.app-sandbox` entitlement anywhere in the build or
   signing scripts; `codesign` is run without `--entitlements`). A failed hand-over only shows in the

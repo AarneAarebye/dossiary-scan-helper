@@ -62,5 +62,7 @@ Use a test profile and a test library in Dossiary for Mac; delete the test scans
 - [ ] With Dossiary for Mac open on another library: the scan is added to the library that is open (check which one).
 - [ ] With Dossiary for Mac open but no library open: the app says so and the scan stays in the folder.
 - [ ] With Dossiary for Mac not installed (rename it temporarily): the switch is hidden for a profile that has it off; a profile that has it on still shows it, and its scan notification says Dossiary isn't installed and the scan is saved in the folder.
+- [ ] Which copy launched: with only the installed app in /Applications/Dossiary and no build copies running, the hand-over reaches that app (no second instance appears).
+- [ ] Move or rename Dossiary while the switch is on: the notification says Dossiary isn't installed, and the scan is saved in the folder.
 - [ ] A partial scan (feeder runs out of paper): the saved pages are handed over and the notification says it was partial.
 - [ ] In every case above the scan file exists in the profile's folder.

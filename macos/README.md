@@ -35,7 +35,7 @@ still change its name and folder.
 Mac is installed; off for a new profile). After a scan is saved in the profile's folder, the helper hands
 the saved files to Dossiary for Mac, which adds them to its last used library (or says so if no library is
 open). The folder copy always exists, also when the hand-over fails or Dossiary isn't installed; the
-notification says what happened. The helper must not be sandboxed for this (it isn't).
+notification says what happened. The target app is the running Dossiary first, then the copy in /Applications/Dossiary, then the one LaunchServices prefers. It needs Dossiary for Mac 0.5.1 or later. The helper must not be sandboxed for this (it isn't).
 
 To install a release, see [docs/install-macos.md](../docs/install-macos.md).
 

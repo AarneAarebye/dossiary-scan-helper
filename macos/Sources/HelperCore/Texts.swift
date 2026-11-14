@@ -77,7 +77,6 @@ public struct Texts: Sendable {
         }
     }
 
-
     /// The runner's own failure texts (the scanner's and the system's messages are shown as they come).
     public func profileScanProblemText(_ problem: ProfileScanProblem) -> String {
         let t = self

@@ -5,7 +5,16 @@ import HelperCore
 enum DossiaryHandOver {
     static let bundleID = "com.aarneaarebye.dossiary-mac"
 
-    static var appURL: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) }
+    private static let installedCopy = URL(fileURLWithPath: "/Applications/Dossiary/Dossiary.app")
+
+    /// The running app first, then the copy in /Applications/Dossiary, then what LaunchServices prefers (it may pick a build copy).
+    static var appURL: URL? {
+        let installed = Bundle(url: installedCopy)?.bundleIdentifier == bundleID ? installedCopy : nil
+        return HandOverTarget.choose(
+            running: NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.bundleURL,
+            installedInApplications: installed,
+            launchServices: NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID))
+    }
     static var isInstalled: Bool { appURL != nil }
 
     static func send(_ files: [URL]) async -> HandOverResult {
