@@ -1,0 +1,47 @@
+name: Bug report
+description: Something does not work as it should
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which app?
+      options:
+        - Dossiary page (dossiary.html)
+        - Dossiary for Mac
+        - Dossiary for iPhone and iPad
+        - Dossiary Sync (Mac service, Pi hub)
+        - Dossiary Scan Helper (Mac)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in the page footer, or in the app's About / settings.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: input
+    id: env
+    attributes:
+      label: Browser, macOS or iOS version
+      description: The page works in Chrome or Edge only (File System Access API).
+  - type: dropdown
+    id: library
+    attributes:
+      label: Library
+      options:
+        - Created fresh in Dossiary
+        - Migrated from Mariner Paperless
+        - Synced (hub)
+        - Not sure
