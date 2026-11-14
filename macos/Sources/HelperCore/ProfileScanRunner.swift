@@ -17,6 +17,17 @@ public enum ProfileScanProblem: Equatable, Sendable {
     case busy, scannerMissing(String), scanFailed, noPages, unreadable, incomplete
 }
 
+public enum HandOverResult: Equatable, Sendable {
+    case sent, notInstalled, failed(String)
+}
+
+/// A profile scan and, when the profile asked for it, what happened when the saved files were handed to Dossiary.
+public struct ProfileScanResult: Equatable, Sendable {
+    public let outcome: ProfileScanOutcome
+    public let handOver: HandOverResult?
+    public init(outcome: ProfileScanOutcome, handOver: HandOverResult?) { self.outcome = outcome; self.handOver = handOver }
+}
+
 /// Runs a scan profile: scan through the router (so exactly like a scan from Dossiary), wait for each file's text
 /// recognition, save the files in the profile's folder. One profile scan at a time.
 public final class ProfileScanRunner: @unchecked Sendable {
@@ -41,6 +52,20 @@ public final class ProfileScanRunner: @unchecked Sendable {
 
     public var runningProfileID: String? { lock.withLock { running } }
     public var isRunning: Bool { runningProfileID != nil }
+
+    /// `run`, then (only for a profile with `sendToDossiary`, and only when files were saved) hands the saved files over.
+    /// A failed hand-over never changes the outcome: the scan is saved either way.
+    public func runAndHandOver(_ profile: ScanProfile,
+                               handOver: @Sendable ([URL]) async -> HandOverResult) async -> ProfileScanResult {
+        let outcome = await run(profile)
+        guard profile.sendToDossiary else { return ProfileScanResult(outcome: outcome, handOver: nil) }
+        switch outcome {
+        case .saved(let files, _, _), .partial(let files, _):
+            return ProfileScanResult(outcome: outcome, handOver: await handOver(files))
+        case .failed, .problem:
+            return ProfileScanResult(outcome: outcome, handOver: nil)
+        }
+    }
 
     public func run(_ profile: ScanProfile) async -> ProfileScanOutcome {
         guard begin(profile.id) else { return .problem(.busy) }

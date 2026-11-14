@@ -133,3 +133,10 @@ private func profile(_ scanner: ScannerInfo, source: Source = .flatbed, duplex: 
     #expect(p.ocrLanguages.isEmpty)
     #expect(ScanProfileRules.normalized(p, for: ScanProfileRules.placeholderScanner(for: p)) == p)
 }
+
+@Test func normalizingKeepsTheSendToDossiarySwitch() {
+    var p = profile(feederPi, source: .flatbed, resolution: 333, format: "jpeg")
+    p.sendToDossiary = true
+    let fitted = ScanProfileRules.normalized(p, for: feederPi)
+    #expect(fitted.source == .feeder && fitted.resolution != 333 && fitted.sendToDossiary)
+}

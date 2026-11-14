@@ -62,3 +62,18 @@ private func sample(_ name: String) -> ScanProfile {
     #expect(throws: (any Error).self) { try store.save(sample("Letters")) }
     #expect(store.profiles.isEmpty)
 }
+
+@Test func aProfileFileFrom07xLoadsWithTheSwitchOff() throws {
+    let json = """
+    {"id":"A","name":"Old","scannerID":"fake:flatbed","scannerName":"Fake Flatbed","destination":"/tmp/scans","source":"flatbed","duplex":false,"colorMode":"color","resolution":300,"format":"pdf","ocr":false,"ocrLanguages":[]}
+    """
+    let p = try JSONDecoder().decode(ScanProfile.self, from: Data(json.utf8))
+    #expect(p.sendToDossiary == false && p.name == "Old" && p.area == nil)
+}
+
+@Test func theSendToDossiarySwitchRoundTripsAndIsWritten() throws {
+    var p = sample("Letters"); p.sendToDossiary = true
+    let data = try JSONEncoder().encode(p)
+    #expect(try JSONDecoder().decode(ScanProfile.self, from: data) == p)
+    #expect(String(decoding: data, as: UTF8.self).contains("\"sendToDossiary\":true"))
+}

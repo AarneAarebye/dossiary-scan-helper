@@ -131,3 +131,74 @@ private final class Counter: @unchecked Sendable {
     func bump() { lock.withLock { count += 1 } }
     var value: Int { lock.withLock { count } }
 }
+
+private final class Received: @unchecked Sendable {
+    private let lock = NSLock()
+    private var calls: [[URL]] = []
+    func add(_ files: [URL]) { lock.withLock { calls.append(files) } }
+    var all: [[URL]] { lock.withLock { calls } }
+}
+
+@Test func withTheSwitchOnTheSavedFilesAreHandedOver() async {
+    let rig = await Rig()
+    defer { rig.cleanup() }
+    var p = rig.profile("fake:flatbed"); p.sendToDossiary = true
+    let got = Received()
+    let result = await rig.runner.runAndHandOver(p) { files in got.add(files); return .sent }
+    guard case .saved(let files, _, _) = result.outcome else { Issue.record("\(result.outcome)"); return }
+    #expect(got.all == [files] && result.handOver == .sent)
+}
+
+@Test func withTheSwitchOffNothingIsHandedOver() async {
+    let rig = await Rig()
+    defer { rig.cleanup() }
+    let got = Received()
+    let result = await rig.runner.runAndHandOver(rig.profile("fake:flatbed")) { files in got.add(files); return .sent }
+    #expect(got.all.isEmpty && result.handOver == nil)
+    guard case .saved = result.outcome else { Issue.record("\(result.outcome)"); return }
+}
+
+@Test func aFailedScanIsNeverHandedOver() async {
+    let rig = await Rig()
+    defer { rig.cleanup() }
+    var failing = rig.profile("fake:offline", name: "Fake Offline Scanner"); failing.sendToDossiary = true
+    var missing = rig.profile("remote:gone:x", name: "Gone"); missing.sendToDossiary = true
+    let got = Received()
+    for p in [failing, missing] {
+        let result = await rig.runner.runAndHandOver(p) { files in got.add(files); return .sent }
+        #expect(result.handOver == nil)
+    }
+    #expect(got.all.isEmpty)
+}
+
+@Test func aPartialScanHandsOverOnlyTheSavedFiles() async {
+    let rig = await Rig()
+    defer { rig.cleanup() }
+    var p = rig.profile("fake:jam", name: "Fake Jamming Feeder"); p.source = .feeder; p.sendToDossiary = true
+    let got = Received()
+    let result = await rig.runner.runAndHandOver(p) { files in got.add(files); return .sent }
+    guard case .partial(let files, _) = result.outcome else { Issue.record("\(result.outcome)"); return }
+    #expect(got.all == [files] && result.handOver == .sent)
+}
+
+@Test func notInstalledAndFailedArePassedThroughAndTheScanStaysSaved() async {
+    let rig = await Rig()
+    defer { rig.cleanup() }
+    var p = rig.profile("fake:flatbed"); p.sendToDossiary = true
+    let a = await rig.runner.runAndHandOver(p) { _ in .notInstalled }
+    #expect(a.handOver == .notInstalled)
+    guard case .saved = a.outcome else { Issue.record("\(a.outcome)"); return }
+    let b = await rig.runner.runAndHandOver(p) { _ in .failed("x") }
+    #expect(b.handOver == .failed("x"))
+    guard case .saved = b.outcome else { Issue.record("\(b.outcome)"); return }
+}
+
+@Test func severalFilesAreHandedOverInOneCall() async {
+    let rig = await Rig()
+    defer { rig.cleanup() }
+    var p = rig.profile("fake:splitter", name: "Fake Splitter"); p.source = .feeder; p.sendToDossiary = true
+    let got = Received()
+    let result = await rig.runner.runAndHandOver(p) { files in got.add(files); return .sent }
+    guard case .saved(let files, _, _) = result.outcome else { Issue.record("\(result.outcome)"); return }
+    #expect(got.all.count == 1 && got.all[0] == files)
+}

@@ -78,3 +78,15 @@ private func url(_ name: String) -> URL { URL(fileURLWithPath: "/tmp/\(name)") }
     #expect(t.profileScanProblemLine(.partial(files: [], message: "Jam.")) == "Jam.")
     #expect(t.profileScanProblemLine(.partial(files: [], message: nil)) == "The scan was incomplete.")
 }
+
+@Test func theSummaryTellsWhatHappenedWhenHandingOverToDossiary() {
+    let t = Texts.english
+    let saved = ProfileScanOutcome.saved(files: [url("a.pdf")], pages: 1, searchable: nil)
+    let base = t.profileScanSummary(saved)
+    #expect(t.profileScanSummary(ProfileScanResult(outcome: saved, handOver: nil)) == base)
+    #expect(t.profileScanSummary(ProfileScanResult(outcome: saved, handOver: .sent)).body == base.body + " — Sent to Dossiary.")
+    #expect(t.profileScanSummary(ProfileScanResult(outcome: saved, handOver: .notInstalled)).body
+            == base.body + " — Dossiary for Mac isn't installed. The scan is saved in the folder.")
+    let failed = t.profileScanSummary(ProfileScanResult(outcome: saved, handOver: .failed("boom")))
+    #expect(failed.title == base.title && failed.body == base.body + " — Couldn't send it to Dossiary: boom")
+}

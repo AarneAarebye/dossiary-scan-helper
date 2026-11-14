@@ -65,6 +65,21 @@ public struct Texts: Sendable {
         }
     }
 
+    /// The notification for a profile scan that may also have been handed to Dossiary.
+    public func profileScanSummary(_ result: ProfileScanResult) -> (title: String, body: String) {
+        let t = self
+        let base = profileScanSummary(result.outcome)
+        switch result.handOver {
+        case nil: return base
+        case .sent?: return (base.title, base.body + " — " + t("Sent to Dossiary."))
+        case .notInstalled?: return (base.title, base.body + " — " + t("Dossiary for Mac isn't installed. The scan is saved in the folder."))
+        case .failed(let message)?: return (base.title, base.body + " — " + t("Couldn't send it to Dossiary: %@", message))
+        }
+    }
+
+    /// The form's label for the hand-over switch (kept here so the text counts as used until the form itself uses it).
+    public var sendToDossiaryLabel: String { let t = self; return t("Also send to Dossiary") }
+
     /// The runner's own failure texts (the scanner's and the system's messages are shown as they come).
     public func profileScanProblemText(_ problem: ProfileScanProblem) -> String {
         let t = self
