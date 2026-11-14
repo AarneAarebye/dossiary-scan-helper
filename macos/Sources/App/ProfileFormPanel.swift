@@ -18,11 +18,12 @@ final class ProfileFormPanel: NSPanel {
     private let formatPopup = NSPopUpButton()
     private let areaPopup = NSPopUpButton()
     private let ocrBox = NSButton(checkboxWithTitle: L("Make the PDF searchable (OCR)"), target: nil, action: nil)
+    private let dossiaryBox = NSButton(checkboxWithTitle: L("Also send to Dossiary"), target: nil, action: nil)
     private let languagesPopup = NSPopUpButton(frame: .zero, pullsDown: true)
     private var offeredLanguages: [String] = []
     private let messageLabel = NSTextField(wrappingLabelWithString: "")
     private var grid = NSGridView()
-    private enum Row: Int { case name, scanner, folder, source, duplex, color, resolution, format, area, ocr, languages }
+    private enum Row: Int { case name, scanner, folder, dossiary, source, duplex, color, resolution, format, area, ocr, languages }
 
     /// `scanners` are the scanners to choose from; `draft` the profile to edit (a new one is already normalized).
     init(scanners: [ScannerInfo], draft: ScanProfile, onSave: @escaping (ScanProfile) -> Void) {
@@ -72,6 +73,7 @@ final class ProfileFormPanel: NSPanel {
         }
         let rows: [[NSView]] = [
             [label(L("Name")), nameField], [label(L("Scanner")), scannerPopup], [label(L("Folder")), folderRow],
+            [NSView(), dossiaryBox],
             [label(L("Source")), sourcePopup], [NSView(), duplexBox], [label(L("Mode")), colorPopup],
             [label(L("Resolution")), resolutionPopup], [label(L("Format")), formatPopup], [label(L("Paper size")), areaPopup],
             [NSView(), ocrBox], [label(L("OCR languages")), languagesPopup],
@@ -85,7 +87,7 @@ final class ProfileFormPanel: NSPanel {
             popup.action = #selector(controlChanged(_:))
         }
         scannerPopup.action = #selector(scannerChanged)
-        for box in [duplexBox, ocrBox] { box.target = self; box.action = #selector(controlChanged(_:)) }
+        for box in [duplexBox, ocrBox, dossiaryBox] { box.target = self; box.action = #selector(controlChanged(_:)) }
         messageLabel.textColor = .systemRed
         let stack = NSStackView(views: [grid, messageLabel, buttons])
         stack.orientation = .vertical
@@ -122,7 +124,9 @@ final class ProfileFormPanel: NSPanel {
         fill(areaPopup, o.areas.map { ($0, Self.areaTitle($0)) }, selected: draft.area)
         duplexBox.state = draft.duplex ? .on : .off
         ocrBox.state = draft.ocr ? .on : .off
+        dossiaryBox.state = draft.sendToDossiary ? .on : .off
         fillLanguages(offered: o.ocrLanguages)
+        grid.row(at: Row.dossiary.rawValue).isHidden = !(DossiaryHandOver.isInstalled || draft.sendToDossiary)
         grid.row(at: Row.source.rawValue).isHidden = o.sources.count < 2
         grid.row(at: Row.duplex.rawValue).isHidden = !o.duplexOffered
         grid.row(at: Row.area.rawValue).isHidden = o.areas.isEmpty
@@ -192,6 +196,7 @@ final class ProfileFormPanel: NSPanel {
         if let f = chosen(formatPopup) { draft.format = f }
         draft.area = chosen(areaPopup)
         draft.ocr = ocrBox.state == .on
+        draft.sendToDossiary = dossiaryBox.state == .on
     }
 
     @objc private func scannerChanged() {

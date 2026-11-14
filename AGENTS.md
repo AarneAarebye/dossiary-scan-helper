@@ -58,4 +58,13 @@ Linux, macOS and Windows, and the macOS unit tests, localization tests and confo
   opens the editor (`ScanProfilesPanel`, `ProfileFormPanel`). `ProfileScanRunner` scans through `Router.performScan`
   (so exactly like a scan from Dossiary), waits for each file's OCR job (give up after 10 minutes, keep the plain scan)
   and saves with `ButtonScanFolder.save(…, into:)`. `ScanProfileRules` is the one place that knows what a scanner offers.
+- Scan to Dossiary (0.8.0): `ScanProfile.sendToDossiary` (form switch "Also send to Dossiary", shown when
+  Dossiary for Mac is installed or the profile already has it on). `ProfileScanRunner.runAndHandOver` runs the
+  scan, then calls the hand-over closure with the saved files; `DossiaryHandOver` (App) sends them with
+  `NSWorkspace.open(_:withApplicationAt:)`, i.e. the system's open-documents event, to bundle id
+  `com.aarneaarebye.dossiary-mac`. No custom URL scheme on purpose: a web page could trigger one. The caller
+  must be unsandboxed (a sandboxed process gets kLSAppDoesNotClaimTypeErr for an app without document types);
+  the helper is not sandboxed (no `com.apple.security.app-sandbox` entitlement anywhere in the build or
+  signing scripts; `codesign` is run without `--entitlements`). A failed hand-over only shows in the
+  notification; the folder copy always exists.
 - `.worktrees/`, `.superpowers/`, and `macos/build`, `macos/dist`, `macos/.build*` are git-ignored.

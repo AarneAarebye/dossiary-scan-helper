@@ -77,8 +77,6 @@ public struct Texts: Sendable {
         }
     }
 
-    /// The form's label for the hand-over switch (kept here so the text counts as used until the form itself uses it).
-    public var sendToDossiaryLabel: String { let t = self; return t("Also send to Dossiary") }
 
     /// The runner's own failure texts (the scanner's and the system's messages are shown as they come).
     public func profileScanProblemText(_ problem: ProfileScanProblem) -> String {

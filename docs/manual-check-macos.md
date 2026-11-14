@@ -52,3 +52,15 @@ Use a test folder for the saved scans, and delete the test profiles afterwards.
 
 - While any scan runs (a profile scan or one from Dossiary), the menu bar icon alternates between the outline and the filled scanner; it returns to the outline when the last scan ends, also after a failed one.
 - The "Scan profiles" form fits its window in every language, with Cancel and Save on the right, and OCR languages is a menu of named languages.
+
+## Scan to Dossiary (0.8.0)
+
+Use a test profile and a test library in Dossiary for Mac; delete the test scans afterwards.
+
+- [ ] Scan profiles… › New…: "Also send to Dossiary" is shown (Dossiary for Mac installed) and off for a new profile; switch it on, save, reopen: it is still on.
+- [ ] With Dossiary for Mac closed: click the profile; Dossiary starts without taking the focus away and adds the scan to its last used library; the notification names the scan.
+- [ ] With Dossiary for Mac open on another library: the scan is added to the library that is open (check which one).
+- [ ] With Dossiary for Mac open but no library open: the app says so and the scan stays in the folder.
+- [ ] With Dossiary for Mac not installed (rename it temporarily): the switch is hidden for a profile that has it off; a profile that has it on still shows it, and its scan notification says Dossiary isn't installed and the scan is saved in the folder.
+- [ ] A partial scan (feeder runs out of paper): the saved pages are handed over and the notification says it was partial.
+- [ ] In every case above the scan file exists in the profile's folder.

@@ -151,8 +151,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let profile = runtime.profileStore.profile(id: id) else { return }
             Task { [weak self] in
                 guard let self else { return }
-                let outcome = await runtime.profileRunner.run(profile)
-                await MainActor.run { self.profileScanFinished(outcome) }
+                let result = await runtime.profileRunner.runAndHandOver(profile) { await DossiaryHandOver.send($0) }
+                await MainActor.run { self.profileScanFinished(result) }
             }
         case .editProfiles:
             profilesPanel.show()
@@ -219,7 +219,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func profileScanFinished(_ outcome: ProfileScanOutcome) {
+    private func profileScanFinished(_ result: ProfileScanResult) {
+        let outcome = result.outcome
         switch outcome {
         case .saved(let files, _, _):
             lastProfileScan = files.first?.lastPathComponent
@@ -230,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .failed, .problem:
             profileProblem = L.profileScanProblemLine(outcome)
         }
-        let summary = L.profileScanSummary(outcome)
+        let summary = L.profileScanSummary(result)
         notifier.notify(title: summary.title, body: summary.body)
     }
 }

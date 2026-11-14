@@ -31,6 +31,12 @@ waits up to 10 minutes for the text recognition, then keeps the plain scan. A Pi
 in a profile once the Pi has been added with "Add network scanner…". A profile whose scanner is off can
 still change its name and folder.
 
+**Also send to Dossiary.** A profile can have the switch "Also send to Dossiary" (shown when Dossiary for
+Mac is installed; off for a new profile). After a scan is saved in the profile's folder, the helper hands
+the saved files to Dossiary for Mac, which adds them to its last used library (or says so if no library is
+open). The folder copy always exists, also when the hand-over fails or Dossiary isn't installed; the
+notification says what happened. The helper must not be sandboxed for this (it isn't).
+
 To install a release, see [docs/install-macos.md](../docs/install-macos.md).
 
 ## Build and test
