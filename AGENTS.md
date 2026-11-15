@@ -67,4 +67,10 @@ Linux, macOS and Windows, and the macOS unit tests, localization tests and confo
   the helper is not sandboxed (no `com.apple.security.app-sandbox` entitlement anywhere in the build or
   signing scripts; `codesign` is run without `--entitlements`). A failed hand-over only shows in the
   notification; the folder copy always exists.
+- Remembered address (0.9.0): a paired server is reached by its Bonjour name (`scanner.local`), which does not cross a
+  split VPN. `RemoteRoutes` (HelperCore) wraps every server transport: the IPv4 address that answered over the name
+  is stored as `RemoteServer.lastAddress` (`RemoteServerStore.updateAddress`, taken from `URLSessionTaskMetrics`),
+  and when the name fails the address is tried, the route that worked last first. The pinned fingerprint is checked
+  on every attempt; a certificate mismatch on a remembered address only means it is stale, one on the name is still
+  `certificateChanged`. Only plain IPv4 is kept. No UI. `RemoteScanners` and `ButtonScanPickup` use it by default.
 - `.worktrees/`, `.superpowers/`, and `macos/build`, `macos/dist`, `macos/.build*` are git-ignored.

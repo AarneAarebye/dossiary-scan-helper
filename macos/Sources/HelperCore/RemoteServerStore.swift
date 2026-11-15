@@ -8,6 +8,8 @@ public struct RemoteServer: Codable, Equatable, Sendable {
     public var host: String
     public var port: Int
     public var fingerprint: String
+    /// The IPv4 address that last answered over `host`, kept for networks where the name doesn't resolve (a split VPN).
+    public var lastAddress: String?
 
     public init(name: String, host: String, port: Int, fingerprint: String) {
         self.id = String(fingerprint.prefix(16))
@@ -95,6 +97,15 @@ public final class RemoteServerStore: @unchecked Sendable {
         try lock.withLock {
             list.removeAll { $0.id == server.id }
             list.append(server)
+            try save()
+        }
+    }
+
+    /// Remembers the address that answered; unknown servers and an unchanged address do nothing.
+    public func updateAddress(id: String, to address: String) throws {
+        try lock.withLock {
+            guard let index = list.firstIndex(where: { $0.id == id }), list[index].lastAddress != address else { return }
+            list[index].lastAddress = address
             try save()
         }
     }

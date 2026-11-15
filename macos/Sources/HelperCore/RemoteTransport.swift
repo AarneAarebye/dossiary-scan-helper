@@ -53,9 +53,11 @@ public struct RemoteReply: Sendable {
     public var body: Data
     /// The certificate fingerprint this answer came with.
     public var fingerprint: String
+    /// The IP address that answered, when the transport knows it (the connection's remote address).
+    public var address: String?
 
-    public init(status: Int, body: Data, fingerprint: String) {
-        self.status = status; self.body = body; self.fingerprint = fingerprint
+    public init(status: Int, body: Data, fingerprint: String, address: String? = nil) {
+        self.status = status; self.body = body; self.fingerprint = fingerprint; self.address = address
     }
 
     public var json: [String: Any]? { (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] }
@@ -70,10 +72,17 @@ final class PinningDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendab
     let pin: String?
     private let lock = NSLock()
     private var seen: String?
+    private var remote: String?
 
     init(pin: String?) { self.pin = pin }
 
     var observed: String? { lock.withLock { seen } }
+    var remoteAddress: String? { lock.withLock { remote } }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
+        let address = metrics.transactionMetrics.last?.remoteAddress
+        lock.withLock { remote = address }
+    }
 
     /// Never follows a redirect: the pin and the token belong to this server only, so a 3xx arrives as a plain status.
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
@@ -131,7 +140,7 @@ public final class URLSessionRemoteTransport: RemoteTransport, @unchecked Sendab
         do {
             let (data, response) = try await session.data(for: urlRequest)
             return RemoteReply(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: data,
-                               fingerprint: delegate.observed ?? "")
+                               fingerprint: delegate.observed ?? "", address: delegate.remoteAddress)
         } catch {
             if let seen = delegate.observed, !RemoteFingerprint.accepts(observed: seen, pin: delegate.pin) {
                 throw RemoteError.certificateChanged(seen: seen)

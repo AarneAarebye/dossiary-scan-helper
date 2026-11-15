@@ -58,12 +58,13 @@ public final class ButtonScanPickup: @unchecked Sendable {
     private var loop: Task<Void, Never>?
 
     public init(store: RemoteServerStore, folder: ButtonScanFolder, ledger: PickedUpLedger,
-                transport: @escaping RemoteScanners.TransportFactory = { URLSessionRemoteTransport(host: $0.host, port: $0.port, pin: $0.fingerprint) },
+                transport: RemoteScanners.TransportFactory? = nil,
                 clock: @escaping @Sendable () -> Date = Date.init,
                 onPickedUp: @escaping @Sendable (PickedUpScan) -> Void = { _ in },
                 onButtonPress: @escaping @Sendable (ButtonPress) -> Void = { _ in },
                 log: @escaping @Sendable (String) -> Void = { _ in }) {
-        self.store = store; self.folder = folder; self.ledger = ledger; self.transport = transport
+        let routes = RemoteRoutes(store: store)
+        self.store = store; self.folder = folder; self.ledger = ledger; self.transport = transport ?? { routes.transport(for: $0) }
         self.clock = clock; self.handler = onPickedUp; self.pressHandler = onButtonPress; self.log = log
     }
 

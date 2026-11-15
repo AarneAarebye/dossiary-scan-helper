@@ -16,9 +16,10 @@ public final class RemoteScanners: @unchecked Sendable {
     private var status: [String: RemoteStatus] = [:]
 
     public init(store: RemoteServerStore,
-                transport: @escaping TransportFactory = { URLSessionRemoteTransport(host: $0.host, port: $0.port, pin: $0.fingerprint) },
+                transport: TransportFactory? = nil,
                 log: @escaping @Sendable (String) -> Void = { _ in }) {
-        self.store = store; self.transport = transport; self.log = log
+        let routes = RemoteRoutes(store: store)
+        self.store = store; self.transport = transport ?? { routes.transport(for: $0) }; self.log = log
     }
 
     public var servers: [RemoteServer] { store.servers }
