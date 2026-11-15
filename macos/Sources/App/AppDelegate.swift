@@ -7,7 +7,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var scanners: [ScannerInfo] = []
     private lazy var pairingPanel = PairingPanel(pairing: runtime.pairing)
     private lazy var networkPanel: NetworkScannerPanel? = runtime.remoteStore.map { store in
-        NetworkScannerPanel(store: store) { [weak self] in self?.refreshScanners() }
+        NetworkScannerPanel(store: store) { [weak self] name in
+            self?.refreshScanners()
+            self?.notifier.notify(title: L("Paired with %@", name), body: L("The scanner is now in the menu."))
+        }
     }
 
     private lazy var profilesPanel = ScanProfilesPanel(store: runtime.profileStore, scanners: { [weak self] in self?.scanners ?? [] },

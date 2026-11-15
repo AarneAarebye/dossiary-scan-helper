@@ -7,7 +7,7 @@ final class NetworkScannerPanel: NSPanel {
     private let store: RemoteServerStore
     private let pairing = RemotePairing()
     private let discovery = RemoteDiscovery()
-    private let onPaired: () -> Void
+    private let onPaired: (String) -> Void
     private let serverPopup = NSPopUpButton()
     private let addressField = NSTextField(string: "")
     private let detailLabel = NSTextField(wrappingLabelWithString: L("Looking for scan servers on the network…"))
@@ -17,7 +17,8 @@ final class NetworkScannerPanel: NSPanel {
     private var probe: RemoteProbe?
     private var busy = false
 
-    init(store: RemoteServerStore, onPaired: @escaping () -> Void) {
+    /// `onPaired` gets the server's name once it is stored; the panel then closes, so the caller tells the person.
+    init(store: RemoteServerStore, onPaired: @escaping (String) -> Void) {
         self.store = store
         self.onPaired = onPaired
         super.init(contentRect: NSRect(x: 0, y: 0, width: 440, height: 300), styleMask: [.titled, .closable],
@@ -137,7 +138,7 @@ final class NetworkScannerPanel: NSPanel {
                 try store.add(RemoteServer(name: probe.name, host: probe.host, port: probe.port,
                                            fingerprint: probe.fingerprint), token: token)
                 Log.shared.write("Paired with the network scanner \(probe.name) (\(probe.host)).")
-                onPaired()
+                onPaired(probe.name)
                 close()
             } catch {
                 detailLabel.stringValue = L.errorText(error)
