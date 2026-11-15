@@ -15,6 +15,24 @@ public struct RemoteServer: Codable, Equatable, Sendable {
         self.id = String(fingerprint.prefix(16))
         self.name = name; self.host = host; self.port = port; self.fingerprint = fingerprint
     }
+
+    /// A server paired by IP address gets its Bonjour name back as `host` (`node-001` -> `node-001.local`) and the
+    /// address becomes `lastAddress`: at home the name finds the server again even if its address changed, away (over a
+    /// split VPN) the address is used. A name that is no valid hostname leaves the address as the host.
+    func withNameAsHost() -> RemoteServer {
+        var addr = in_addr()
+        guard inet_pton(AF_INET, host, &addr) == 1, Self.isHostname(name) else { return self }
+        var copy = self
+        copy.lastAddress = host
+        copy.host = "\(name).local"
+        return copy
+    }
+
+    private static func isHostname(_ name: String) -> Bool {
+        let bytes = Array(name.utf8)
+        guard !bytes.isEmpty, bytes.count <= 63, bytes.first != 0x2D, bytes.last != 0x2D else { return false }
+        return bytes.allSatisfy { ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x61 && $0 <= 0x7A) || $0 == 0x2D }
+    }
 }
 
 public protocol SecretStore: Sendable {
@@ -84,7 +102,7 @@ public final class RemoteServerStore: @unchecked Sendable {
         self.secrets = secrets
         if let fileURL, let data = try? Data(contentsOf: fileURL),
            let saved = try? JSONDecoder().decode([RemoteServer].self, from: data) {
-            list = saved
+            list = saved.map { $0.withNameAsHost() }
         }
     }
 
@@ -96,7 +114,7 @@ public final class RemoteServerStore: @unchecked Sendable {
         try secrets.set(token, for: server.id)
         try lock.withLock {
             list.removeAll { $0.id == server.id }
-            list.append(server)
+            list.append(server.withNameAsHost())
             try save()
         }
     }

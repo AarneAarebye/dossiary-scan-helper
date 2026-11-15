@@ -73,4 +73,8 @@ Linux, macOS and Windows, and the macOS unit tests, localization tests and confo
   and when the name fails the address is tried, the route that worked last first. The pinned fingerprint is checked
   on every attempt; a certificate mismatch on a remembered address only means it is stale, one on the name is still
   `certificateChanged`. Only plain IPv4 is kept. No UI. `RemoteScanners` and `ButtonScanPickup` use it by default.
+  0.9.1: a server paired by IP address keeps its name too (`RemoteServer.withNameAsHost`, applied by
+  `RemoteServerStore` on add and on load): `host` becomes `<name>.local` and the address `lastAddress`, so at home the
+  name finds it again after an address change and away the address is used. A name that is no valid hostname leaves the
+  address as the host.
 - `.worktrees/`, `.superpowers/`, and `macos/build`, `macos/dist`, `macos/.build*` are git-ignored.

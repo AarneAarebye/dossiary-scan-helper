@@ -71,14 +71,60 @@ private let get = RemoteRequest(method: "GET", path: "/scanners", token: "tok", 
     }
 }
 
-@Test func aServerPairedByAddressRemembersNothingNew() async throws {
+@Test func aServerPairedByAddressKeepsItsNameAndRemembersTheAddress() throws {
     let store = RemoteServerStore(fileURL: nil, secrets: MemorySecretStore())
-    let server = RemoteServer(name: "scanner", host: home, port: 8767, fingerprint: fp)
+    let server = RemoteServer(name: "node-001", host: home, port: 8767, fingerprint: fp)
     try store.add(server, token: "t")
-    let network = FakeNetwork([home: .answers(address: home)])
+    #expect(store.servers.first?.host == "node-001.local")
+    #expect(store.servers.first?.lastAddress == home)
+    #expect(store.token(for: server.id) == "t")
+}
+
+@Test func aNameThatIsNoHostnameLeavesTheAddressAsTheHost() throws {
+    for name in ["Living Room Pi", "", "pi_1", "-pi", String(repeating: "a", count: 64)] {
+        let store = RemoteServerStore(fileURL: nil, secrets: MemorySecretStore())
+        try store.add(RemoteServer(name: name, host: home, port: 8767, fingerprint: fp), token: "t")
+        #expect(store.servers.first?.host == home && store.servers.first?.lastAddress == nil, "name \"\(name)\"")
+    }
+}
+
+@Test func aHostnameAndItsRememberedAddressAreLeftAlone() throws {
+    let store = RemoteServerStore(fileURL: nil, secrets: MemorySecretStore())
+    var server = RemoteServer(name: "node-001", host: "pi.example.org", port: 8767, fingerprint: fp)
+    server.lastAddress = "10.0.0.5"
+    try store.add(server, token: "t")
+    #expect(store.servers.first == server)
+}
+
+@Test func anOldEntryPairedByAddressIsConvertedWhenLoaded() throws {
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        .appendingPathComponent("remote-servers.json")
+    try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+    let id = String(fp.prefix(16))
+    let old = #"[{"fingerprint":"\#(fp)","host":"\#(home)","id":"\#(id)","name":"node-001","port":8767}]"#
+    try Data(old.utf8).write(to: file)
+    let loaded = RemoteServerStore(fileURL: file, secrets: MemorySecretStore()).servers
+    #expect(loaded.first?.host == "node-001.local" && loaded.first?.lastAddress == home && loaded.first?.id == id)
+}
+
+@Test func aServerPairedByAddressUsesTheAddressWhereTheNameFails() async throws {
+    let store = RemoteServerStore(fileURL: nil, secrets: MemorySecretStore())
+    let server = RemoteServer(name: "node-001", host: home, port: 8767, fingerprint: fp)
+    try store.add(server, token: "t")
+    let network = FakeNetwork(["node-001.local": .unreachable, home: .answers(address: home)])
     let routes = RemoteRoutes(store: store, make: { host, _ in network.make(host) })
-    _ = try await routes.transport(for: server).send(get)
-    #expect(store.servers.first?.lastAddress == nil)
+    let stored = try #require(store.servers.first)
+    let reply = try await routes.transport(for: stored).send(get)
+    #expect(reply.status == 200 && network.calls == ["node-001.local", home])
+}
+
+@Test func aServerPairedByAddressFindsItsNewAddressAtHome() async throws {
+    let store = RemoteServerStore(fileURL: nil, secrets: MemorySecretStore())
+    try store.add(RemoteServer(name: "node-001", host: home, port: 8767, fingerprint: fp), token: "t")
+    let network = FakeNetwork(["node-001.local": .answers(address: "192.168.65.99"), home: .unreachable])
+    let routes = RemoteRoutes(store: store, make: { host, _ in network.make(host) })
+    _ = try await routes.transport(for: try #require(store.servers.first)).send(get)
+    #expect(store.servers.first?.lastAddress == "192.168.65.99" && network.calls == ["node-001.local"])
 }
 
 @Test func fallsBackToTheRememberedAddressWhenTheNameFails() async throws {
