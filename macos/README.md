@@ -63,6 +63,14 @@ that isn't in the catalog. After a build, `scripts/check-localized-app.sh` print
 languages; `dossiary-scan-helper --print-menu -AppleLanguages "(fr)"` shows any other. Messages the
 helper sends to Dossiary stay English.
 
+## App icon
+
+`Resources/AppIcon.icns` (and the 1024 px master `AppIcon.png`) are committed, so builds need neither
+Pillow nor the script; `scripts/build-app.sh` copies the `.icns` into the bundle. The icon is Dossiary's
+style (ink square, green frame, large green "D") with a glowing scan bar across the "D". To change it, edit
+`scripts/make_app_icon.py` and run `/usr/local/bin/python3 scripts/make_app_icon.py` (needs Pillow and
+macOS for `iconutil`), then commit both files. The colors and the size of the "D" follow Dossiary's own icon.
+
 ## Release
 
 1. Bump `HelperVersion.string` in `Sources/HelperCore/Version.swift`.
